@@ -1,0 +1,154 @@
+{
+    "titles": [ "BSc" ],
+    "first_name": "John",
+    "middle_names": ["Jones"],
+    "last_name": "Doe",
+    "nationality": "Dutch",
+    "email_address": "jjd@example.com",
+    "phone_number": "+31 00 00 00 00",
+    "address": {
+        "street": "Examplestreet",
+        "number": 1,
+        "additions": null,
+        "postal_code": "0000XX",
+        "city": "Townsville",
+        "country": "The Netherlands"
+    },
+    "date_of_birth": "32 Octember 2100",
+    "availability": "Immediately",
+    "hours_per_week": 36,
+
+    "links": [
+        {
+            "title": "GitHub Profile",
+            "href": "https://github.com/krpors"
+        }, {
+            "title": "LinkedIn",
+            "href": "https://www.linkedin.com/in/kevin-pors-8398673/"
+        }
+    ],
+
+    "education": [
+        {
+            "date": "2005",
+            "faculty": "School of Rock",
+            "city": "Rotterdam",
+            "major": "Software Engineering",
+            "minor": null
+        }
+    ],
+
+    "citation": {
+        "text": "Premature optimization is the root of all evil.",
+        "attribution": "D. Knuth"
+    },
+
+    "profile": {
+        "keywords": ["Polyglot", "Insecure", "Technical", "Jumpy"],
+        "description": "I can best described as a person who does lorem ipsum."
+    },
+
+    "certificates": [
+        {
+            "date": "2021",
+            "title": "SAFe Agile is a farce",
+            "instructor": "I.P. Freely",
+            "company": "Agile Inc."
+        }, {
+            "date": "2020",
+            "title": "Agile Manifesto Is All You Need",
+            "instructor": null,
+            "company": "Agile Inc."
+        }
+    ],
+
+    "languages": [{
+            "language": "Dutch",
+            "level": "C2"
+        }, {
+            "language": "English",
+            "level": "C1"
+        }, {
+            "language": "Spanish (Spain)",
+            "level": "A1"
+        }
+    ],
+
+    "skills": [
+        {
+            "category" : "Programming languages",
+            "subjects": [
+                {
+                    "name": "Go",
+                    "proficiency": 6
+                },
+                {
+                    "name": "Java",
+                    "proficiency": 9
+                },
+                {
+                    "name": "Prolog",
+                    "proficiency": 9
+                },
+                {
+                    "name": "Brainfuck",
+                    "proficiency": 10
+                }
+            ]
+        },
+        {
+            "category" : "Operating Systems",
+            "subjects": [
+                {
+                    "name": "Linux",
+                    "proficiency": 9
+                },
+                {
+                    "name": "Windows",
+                    "proficiency": 7
+                },
+                {
+                    "name": "Sun Solaris",
+                    "proficiency": 1
+                }
+            ]
+        }
+    ],
+    "vocational": [{
+            "period": "2012-2025",
+            "client": "Acme Inc.",
+            "location": "Den Haag",
+            "role": "Professional Tinkerer",
+            "situation": "Acme is a company that produces products.",
+            "task": "I was tasked to fix products.",
+            "action": "I added concurrency and parallelism to the products.",
+            "results": "The products were produced faster",
+            "used_skills": ["Git", "C++", "Rust"]
+        }, {
+            "period": "2009-2012",
+            "client": "ExoGeni",
+            "location": "Feros, Theseus System",
+            "role": "Lead developer",
+            "situation": "ExoGeni is a Mass Effect corporation.",
+            "task": "Adding products to the assignment tasks.",
+            "action": "Made things work.",
+            "results": "1000% increase in products.",
+            "used_skills": ["Subversion", "Apache", "QuickBasic"]
+        }
+    ],
+
+    "interests": [
+        {
+            "subject": "Archery",
+            "description": "On sundays, I regularly participate in archery."
+        }, {
+            "subject": "Running",
+            "description": "Whenever I have a spare hour, I like to go for a run."
+        }
+    ],
+
+    "custom": {
+        "custom_keys_go_here": "This is a custom key.",
+        "anything": "Can go here."
+    }
+}

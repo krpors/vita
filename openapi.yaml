@@ -1,0 +1,408 @@
+openapi: 3.0.3
+info:
+  title: Vita OpenAPI definition
+  description: |-
+    This is the OpenAPI definition for the Vita CV generator.
+  contact:
+    email: kpors@qualogy.com
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+security:
+- bearerAuth: []
+tags:
+  - name: cv
+    description: |-
+      CV generation related endpoints. These are mainly used for updating and generating a 'definitive'
+      version of a particular CV. The previous versions can be retrieved using the 'revisions'. Only one
+      'definitive' CV exists at a given time for a user, which is the most recent updated one.
+  - name: revisions
+    description: |-
+      CV revisions. Once a new CV is posted to the `/v1/cv` endpoint, the current is moved to the
+      revisions.
+  - name: development
+    description: |-
+      CV in-development operations. These versions are for temporary
+      purposes only.
+  - name: login
+    description: Used to authenticate users to the system.
+paths:
+  /v1/cv:
+    post:
+      tags:
+        - cv
+      summary: Create a new CV entry.
+      description: |-
+        Authenticated needed. This endpoint will create a new CV entry for the user, identified
+        by the claims given in the JWT. There is zero or one CV active at a given time. When new
+        CV data is posted to this endpoint, the current CV is moved to the revisions resource.
+        The new CV's version is incremented.
+      requestBody:
+        description: Create a new CV
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/CurriculumVitae'
+      responses:
+        200:
+          description: CV is published ok.
+        400:
+          description: Bad request. JSON malformed or incomplete.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiError'
+        403:
+          description: Invalid credentials. The given claims in the JWT may have expired, be invalid or corrupted.
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiError'
+
+    get:
+      tags:
+        - cv
+      summary: Get the user's current CV data as JSON
+      responses:
+        200:
+          description: The CV is retrieved successfully.
+          content:
+            application/pdf:
+              schema:
+                description: PDF in binary format
+                type: string
+                format: binary
+            application/json:
+              schema:
+                type: object
+                properties:
+                  metadata:
+                    type: object
+                    allOf:
+                      - $ref: '#/components/schemas/Metadata'
+                  cv:
+                    type: object
+                    allOf:
+                      - $ref: '#/components/schemas/CurriculumVitae'
+
+  /v1/cv/revisions:
+    get:
+      tags:
+        - revisions
+      summary: Get revisions of CVs for the current user as a JSON array.
+      responses:
+        200:
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    metadata:
+                      type: object
+                      allOf:
+                        - $ref: '#/components/schemas/Metadata'
+                    cv:
+                      type: object
+                      allOf:
+                        - $ref: '#/components/schemas/CurriculumVitae'
+
+
+  /v1/login:
+    post:
+      tags:
+        - login
+      summary: Log in using a supplied username and password
+      requestBody:
+        description: Request to authenticate using a username and password
+        content:
+          application/json:
+            schema:
+              properties:
+                username:
+                  type: string
+                  example: foo
+                password:
+                  type: string
+                  example: barbazquux123
+      responses:
+        200:
+          description: User is correctly logged in using the supplied credentials.
+          content:
+            application/json:
+              schema:
+                title: All ok
+                properties:
+                  jwt:
+                    title: The JSON Web Token for authentication against protected endpoints.
+                    example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
+
+        403:
+          description: User is not authenticated. The supplied credentials are invalid.
+          content:
+            application/json:
+              schema:
+                title: Error
+                allOf:
+                  - $ref: '#/components/schemas/ApiError'
+components:
+  schemas:
+    Metadata:
+      type: object
+      description: Metadata returned by the API about a single CV.
+      properties:
+        owner:
+          type: object
+          properties:
+            $oid:
+              type: string
+              description: The object ID (from MongoDB)
+              example: 6752ea0f452abfaed6cc3bf2
+        version:
+          type: integer
+          description: The version of the returned CV. Positive integer.
+          example: 4
+
+    CurriculumVitae:
+      type: object
+      description: |-
+        The CurriculumVitate schema is the heart of the application, and describes all properties a
+        CV may have for a particular person. It contains many fields, which are functionally all optional,
+        because it depends on the used template whether a field is used or not in rendering a PDF.
+      properties:
+        titles:
+          description: The titles a person may have, e.g. BSc., Dr.
+          type: array
+          items:
+            type: string
+            example: BSc.
+        first_name:
+          description: The first name of the CV holder.
+          type: string
+          example: John
+        middle_names:
+          description: Optional middle names.
+          type: array
+          example:
+            - Jim
+            - Jones
+          items:
+            type: string
+        last_name:
+          description: Last name of the CV holder
+          type: string
+          example: Doe
+        nationality:
+          description: Country of origin
+          type: string
+          example: The Netherlands
+        email_address:
+          description: E-Mail address of the user
+          type: string
+          example: user@example.org
+        phone_number:
+          description: Phone number
+          type: string
+          example: +31 6 00000000
+        address:
+          description: Address of the user
+          type: object
+          properties:
+            street:
+              type: string
+            number:
+              type: integer
+              example: 1131
+            additions:
+              type: string
+              example: [a, b]
+            postal_code:
+              type: string
+              example: 1111AA
+            country:
+              type: string
+              example: España
+        date_of_birth:
+          type: string
+          example: '32 oktember 1975'
+        availability:
+          type: string
+          description: When the user is available for work
+          example: June 2nd 2028
+        hours_per_week:
+          type: integer
+          description: Amount of hours per week the candidate is willing/able to work
+          example: 32
+        links:
+          type: array
+          items:
+            properties:
+              title:
+                type: string
+                example: My example profile page
+              href:
+                type: string
+                example: https://example.org/profile
+        education:
+          description: List of educational degrees
+          type: array
+          items:
+            properties:
+              date:
+                type: string
+              faculty:
+                type: string
+              city:
+                type: string
+              major:
+                type: string
+              minor:
+                type: string
+        citation:
+          description: A citation to express a personal thought.
+          type: object
+          properties:
+            text:
+              type: string
+              example: Premature optimization is the root of all evil [...]
+            attribution:
+              type: string
+              example: D. Knuth
+        profile:
+          description: Personal profile description
+          properties:
+            keywords:
+              type: array
+              example: [Polyglot, Technical, Social]
+              items:
+                type: string
+            description:
+              description: Personal description of yourself.
+              type: string
+              example: I am a certified IT professional, having 100 years of experience with the Babbage machine ...
+        certificates:
+          description: Array of certificates a user may have.
+          type: array
+          items:
+            type: object
+            properties:
+              date:
+                type: string
+                example: 2025
+              title:
+                type: string
+                example: SAFe Agile is a scam
+              instructor:
+                type: string
+                example: I.P. Freely
+              company:
+                type: string
+                example: MomCorp
+        languages:
+          description: Languages the user learned or mastered.
+          type: array
+          items:
+            type: object
+            properties:
+              language:
+                type: string
+                example: Dutch
+              level:
+                type: string
+                description: CEFR level of mastery
+                example: C2
+                enum: [A1, A2, B1, B2, C1, C2]
+        skills:
+          type: array
+          items:
+            type: object
+            properties:
+              category:
+                type: string
+                description: Category to group certain skills under.
+                example: Programming languages
+              subjects:
+                type: array
+                description: List of subjects
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                      example: C++
+                    proficiency:
+                      type: integer
+                      description: Proficiency. Ideally on a scale to 10
+                      example: 8
+        vocational:
+          type: array
+          items:
+            type: object
+            properties:
+              period:
+                type: string
+              client:
+                type: string
+              location:
+                type: string
+              role:
+                type: string
+              situation:
+                type: string
+              task:
+                type: string
+              action:
+                type: string
+              results:
+                type: string
+              used_skills:
+                type: array
+                example: [C++, Rust, Bash, MongoDB, PostgreSQL]
+                items:
+                  type: string
+
+        interests:
+          type: array
+          items:
+            type: object
+            properties:
+              subject:
+                type: string
+              description:
+                type: string
+
+        custom:
+          type: object
+          description: |-
+            Custom keys, not belonging to the default interface. This can be used
+            to supply key/values or structures for specific purposes, which may
+            differ per Typst template used.
+
+    ApiError:
+      description: Generic error returned by the API.
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+              example: InternalServerError
+              description: A camel-cased canonical error code.
+            message:
+              type: string
+              example: An internal error occurred while trying to render the PDF
+
+  securitySchemes:
+    bearerAuth: # arbitrary name for the security scheme
+      type: http
+      scheme: bearer
+      bearerFormat: JWT # optional, arbitrary value for documentation purposes

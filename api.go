@@ -29,6 +29,7 @@ type ErrorCode string
 const (
 	ApiErrorCodeInvalid              ErrorCode = "BadRequest"
 	ApiErrorCodeForbidden            ErrorCode = "Forbidden"
+	ApiErrorCodeMethodNotAllowed     ErrorCode = "MethodNotAllowed"
 	ApiErrorCodeNotFound             ErrorCode = "URINotFound"
 	ApiErrorCodeResourceNotFound     ErrorCode = "ResourceNotFound"
 	ApiErrorCodeInternalError        ErrorCode = "InternalServerError"
@@ -38,6 +39,7 @@ const (
 var apiErrorCodeMap = map[ErrorCode]int{
 	ApiErrorCodeInvalid:              http.StatusBadRequest,
 	ApiErrorCodeForbidden:            http.StatusForbidden,
+	ApiErrorCodeMethodNotAllowed:     http.StatusMethodNotAllowed,
 	ApiErrorCodeNotFound:             http.StatusNotFound,
 	ApiErrorCodeResourceNotFound:     http.StatusNotFound,
 	ApiErrorCodeInternalError:        http.StatusInternalServerError,
@@ -176,6 +178,30 @@ func SortByVersion() func(left, right CurriculumVitaeDocument) int {
 // =============================================================================
 // API REST handler functions
 // =============================================================================
+
+func ApiCreateUser(repo *MongoRepository) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var request CreateUserRequest
+		err := render.Bind(r, &request)
+
+		if err != nil {
+			apiResponse := NewApiErrorResponse(ApiErrorCodeInvalid, "unable to read request")
+			render.Render(w, r, &apiResponse)
+			return
+		}
+
+		user := User{
+			Username: request.Username,
+			Password: request.Password,
+		}
+		_, err = repo.CreateUser(r.Context(), user)
+		if err != nil {
+			apiError := NewApiErrorResponse(ApiErrorCodeInvalid, "an account with that username already exists")
+			render.Render(w, r, &apiError)
+			return
+		}
+	}
+}
 
 // API call to login to the system using the MongoDB backend.
 func ApiLogin(repo *MongoRepository) http.HandlerFunc {
@@ -316,7 +342,7 @@ func ApiGetUserCvData(repo *MongoRepository) http.HandlerFunc {
 		accept := r.Header.Get("accept")
 
 		if !found {
-			apiError := NewApiErrorResponse(ApiErrorCodeNotFound, "The current user does not have a persisted CV (yet)")
+			apiError := NewApiErrorResponse(ApiErrorCodeResourceNotFound, "The current user does not have a persisted CV (yet)")
 			render.Render(w, r, &apiError)
 			return
 		}

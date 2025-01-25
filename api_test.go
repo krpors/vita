@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-chi/chi/v5"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
@@ -17,23 +19,34 @@ import (
 var (
 	testMongoClient *mongo.Client
 	testRepo        MongoRepository
+	testRouter      chi.Router
 )
 
 func mustUnmarshal(t *testing.T, rc io.ReadCloser, v any) {
 	b, err := io.ReadAll(rc)
 	if err != nil {
-		t.Errorf("unable to read body")
+		t.Errorf("unable to read body: %s", err)
 	}
 	err = json.Unmarshal(b, v)
 	if err != nil {
-		t.Errorf("unable to unmarshal!!")
+		t.Errorf("unable to unmarshal: %s", err)
 	}
+}
+
+func mustRead(rc io.ReadCloser) string {
+	bytes, err := io.ReadAll(rc)
+	if err != nil {
+		panic("could not read body")
+	}
+
+	return string(bytes)
 }
 
 func TestMain(t *testing.M) {
 	testMongoClient = createTestingMongoClient()
 	defer testMongoClient.Disconnect(context.TODO())
 	testRepo = NewMongoRepository(testMongoClient)
+	testRouter = createRouter(&testRepo)
 	code := t.Run()
 	os.Exit(code)
 }
@@ -53,9 +66,53 @@ func createTestingMongoClient() *mongo.Client {
 	return client
 }
 
+func TestMethodNotAllowed(t *testing.T) {
+	// GET is not allowed on /v1/user
+	req := httptest.NewRequest(http.MethodGet, "/v1/user", nil)
+	w := httptest.NewRecorder()
+
+	testRouter.ServeHTTP(w, req)
+	result := w.Result()
+	defer result.Body.Close()
+
+	if w.Result().StatusCode != 405 {
+		t.Errorf("expected status code 405")
+	}
+
+	var errResponse ApiErrorResponse
+	mustUnmarshal(t, w.Result().Body, &errResponse)
+
+	if errResponse.Error.Code != ApiErrorCodeMethodNotAllowed {
+		t.Errorf("expected 405 here")
+	}
+}
+
+func TestCreateUser(t *testing.T) {
+	userRequest := CreateUserRequest{
+		Username: "testuser",
+		Password: "testuser",
+	}
+	b, _ := json.Marshal(userRequest)
+	reader := bytes.NewReader(b)
+
+	req := httptest.NewRequest(http.MethodPost, "/v1/user", reader)
+
+	req.Header.Add("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	testRouter.ServeHTTP(w, req)
+	result := w.Result()
+	defer result.Body.Close()
+
+	if w.Result().StatusCode != 200 {
+		body := mustRead(w.Result().Body)
+		t.Errorf("statuscode is not 200 but %d. Response is '%s'", w.Result().StatusCode, body)
+	}
+}
+
 func TestLoginFailure(t *testing.T) {
-	rader := strings.NewReader(`{ "username": "kpors", "password": "incorrectpasswordhere"}`)
-	req := httptest.NewRequest(http.MethodGet, "/v1/login", rader)
+	reader := strings.NewReader(`{ "username": "kpors", "password": "incorrectpasswordhere"}`)
+	req := httptest.NewRequest(http.MethodGet, "/v1/login", reader)
 	req.Header.Add("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
@@ -91,7 +148,6 @@ func TestGetCv(t *testing.T) {
 
 	var balls CurriculumVitaeDocument
 	mustUnmarshal(t, w.Result().Body, &balls)
-	t.Logf("balls: %v", balls)
 }
 
 // logins using the API with a correct username and password against the

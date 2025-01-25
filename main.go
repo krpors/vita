@@ -48,7 +48,13 @@ func createRouter(repo *MongoRepository) chi.Router {
 		render.Render(w, r, &resp)
 	})
 
+	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
+		resp := NewApiErrorResponse(ApiErrorCodeMethodNotAllowed, "The method %s is not allowed on the endpoint '%s'", r.Method, r.URL.Path)
+		render.Render(w, r, &resp)
+	})
+
 	r.Post("/v1/login", ApiLogin(repo))
+	r.Post("/v1/user", ApiCreateUser(repo))
 	r.Group(func(r chi.Router) {
 		r.Use(JWTAuthMiddleware)
 		r.Get("/v1/cv", ApiGetUserCvData(repo))

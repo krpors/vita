@@ -1,2 +1,3 @@
 # vita
-Curriculum Vitae generator backend application
+
+Curriculum Vitae generator backend application.

@@ -126,8 +126,17 @@ func (req *PreviewRequest) Bind(r *http.Request) error {
 	return nil
 }
 
+type CreateUserRequest struct {
+	Username string `bson:"username" json:"username"`
+	Password string `bson:"password" json:"password"`
+}
+
+func (req *CreateUserRequest) Bind(r *http.Request) error {
+	return nil
+}
+
 type User struct {
-	Id       bson.ObjectID `bson:"_id"`
+	Id       bson.ObjectID `bson:"_id,omitempty"`
 	Username string
 	Password string
 	Profile  struct {

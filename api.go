@@ -270,7 +270,7 @@ func runCommand(cv *CurriculumVitae) ([]byte, error) {
 	cmd := exec.Command(
 		"typst",                       // the command
 		"compile",                     // compile only
-		"../templates/qualogycv.typ",  // template to use
+		"testdata/example.typ",        // template to use
 		"--input",                     // specify input data
 		fmt.Sprintf("data=%s", bytes), // 'data' is the key, serialized JSON is value
 		"-")                           // output the stdout

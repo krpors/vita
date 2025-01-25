@@ -1,7 +1,7 @@
 {
-    "titles": [ "BSc" ],
+    "titles": [ "BSc.", "Dr." ],
     "first_name": "John",
-    "middle_names": ["Jones"],
+    "middle_names": ["Jones", "James"],
     "last_name": "Doe",
     "nationality": "Dutch",
     "email_address": "jjd@example.com",
@@ -35,6 +35,12 @@
             "city": "Rotterdam",
             "major": "Software Engineering",
             "minor": null
+        }, {
+            "date": 2001,
+            "faculty": "Acme College",
+            "city" : "Zombietown",
+            "major": "Zombiology",
+            "minor": "Vegetarianism"
         }
     ],
 

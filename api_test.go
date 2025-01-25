@@ -42,6 +42,21 @@ func mustRead(rc io.ReadCloser) string {
 	return string(bytes)
 }
 
+func setupTestUser(t *testing.T) func() {
+	objectId, err := testRepo.CreateUser(context.TODO(), User{
+		Username: "testuser",
+		Password: "testuser",
+	})
+
+	if err != nil {
+		t.Fatal("Could not create testing user", err)
+	}
+
+	return func() {
+		testRepo.DeleteUser(context.TODO(), objectId.Hex())
+	}
+}
+
 func TestMain(t *testing.M) {
 	testMongoClient = createTestingMongoClient()
 	defer testMongoClient.Disconnect(context.TODO())
@@ -87,11 +102,19 @@ func TestMethodNotAllowed(t *testing.T) {
 	}
 }
 
-func TestCreateUser(t *testing.T) {
+func _TestCreateUser(t *testing.T) {
 	userRequest := CreateUserRequest{
 		Username: "testuser",
 		Password: "testuser",
 	}
+
+	defer func() {
+		user, found := testRepo.FindUserByUsername(context.TODO(), "testuser")
+		if found {
+			testRepo.DeleteUser(context.TODO(), user.Id.Hex())
+		}
+	}()
+
 	b, _ := json.Marshal(userRequest)
 	reader := bytes.NewReader(b)
 

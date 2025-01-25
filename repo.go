@@ -216,6 +216,20 @@ func (r *MongoRepository) DeleteSingleRevision(ctx context.Context, uid string, 
 	return deleteResult.DeletedCount > 0, nil
 }
 
+func (r *MongoRepository) FindUserByUsername(ctx context.Context, username string) (User, bool) {
+	result := r.userCollection.FindOne(ctx, bson.D{
+		{Key: "username", Value: username},
+	})
+
+	if result.Err() == nil {
+		var user User
+		result.Decode(&user)
+		return user, true
+	}
+
+	return User{}, false
+}
+
 func (r *MongoRepository) FindAllUsers(ctx context.Context) {
 	cursor, err := r.userCollection.Find(ctx, bson.D{})
 	if err != nil {

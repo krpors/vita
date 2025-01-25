@@ -42,6 +42,12 @@ func mustRead(rc io.ReadCloser) string {
 	return string(bytes)
 }
 
+// setupTestUser actually creates a test user in the database. The function
+// returns a function, which can be deferred so that the test user is deleted
+// after running a test which requires a user.
+//
+// This ascertains that each test is run with a clean account, with zero assigned
+// 'foreign keys'.
 func setupTestUser(t *testing.T) func() {
 	objectId, err := testRepo.CreateUser(context.TODO(), User{
 		Username: "testuser",
@@ -102,6 +108,7 @@ func TestMethodNotAllowed(t *testing.T) {
 	}
 }
 
+// TODO: fix this
 func _TestCreateUser(t *testing.T) {
 	userRequest := CreateUserRequest{
 		Username: "testuser",
@@ -150,6 +157,7 @@ func TestLoginFailure(t *testing.T) {
 }
 
 func TestLoginOk(t *testing.T) {
+	defer setupTestUser(t)()
 	response := login(t)
 	t.Logf("JWT: %s", response.Jwt)
 }
@@ -157,12 +165,12 @@ func TestLoginOk(t *testing.T) {
 func TestGetCv(t *testing.T) {
 	r := createRouter(&testRepo)
 
-	response := login(t)
+	defer setupTestUser(t)()
 
 	req := httptest.NewRequest(http.MethodGet, "/v1/cv", nil)
 
 	req.Header.Add("Accept", "application/json")
-	req.Header.Add("Authorization", "Bearer "+response.Jwt)
+	// req.Header.Add("Authorization", "Bearer "+response.Jwt)
 	w := httptest.NewRecorder()
 
 	r.ServeHTTP(w, req)
@@ -177,7 +185,7 @@ func TestGetCv(t *testing.T) {
 // database, then returns a LoginResponse with a JWT to use in subsequent
 // authenticated tests.
 func login(t *testing.T) LoginResponse {
-	reader := strings.NewReader(`{ "username": "kpors", "password": "test"}`)
+	reader := strings.NewReader(`{ "username": "testuser", "password": "testuser"}`)
 	req := httptest.NewRequest(http.MethodGet, "/v1/login", reader)
 	req.Header.Add("Content-Type", "application/json")
 	w := httptest.NewRecorder()

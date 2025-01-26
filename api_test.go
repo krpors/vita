@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -109,37 +110,6 @@ func TestMethodNotAllowed(t *testing.T) {
 	assert.Equal(t, ApiErrorCodeMethodNotAllowed, errResponse.Error.Code)
 }
 
-// TODO: fix this
-func _TestCreateUser(t *testing.T) {
-	userRequest := CreateUserRequest{
-		Username: "testuser",
-		Password: "testuser",
-	}
-
-	defer func() {
-		user, found := testRepo.FindUserByUsername(context.TODO(), "testuser")
-		if found {
-			testRepo.DeleteUser(context.TODO(), user.Id.Hex())
-		}
-	}()
-
-	b, _ := json.Marshal(userRequest)
-	reader := bytes.NewReader(b)
-
-	req := httptest.NewRequest(http.MethodPost, "/v1/user", reader)
-
-	req.Header.Add("Content-Type", "application/json")
-	w := httptest.NewRecorder()
-
-	testRouter.ServeHTTP(w, req)
-	result := w.Result()
-	defer result.Body.Close()
-
-	if w.Result().StatusCode != 200 {
-		t.Errorf("statuscode is not 200 but %d. Response is '%s'", w.Result().StatusCode, w.Body.String())
-	}
-}
-
 func TestLoginFailure(t *testing.T) {
 	reader := strings.NewReader(`{ "username": "kpors", "password": "incorrectpasswordhere"}`)
 	req := httptest.NewRequest(http.MethodGet, "/v1/login", reader)
@@ -215,6 +185,41 @@ func TestCreateAndGet(t *testing.T) {
 	assert.Equal(t, 4, len(pdfHeader))
 	assert.Equal(t, expected, pdfHeader)
 	assert.Equal(t, 200, w.Result().StatusCode)
+}
+
+func TestNoRegisteredUri(t *testing.T) {
+	req := httptest.NewRequest(http.MethodGet, "/non-existent-uri", nil)
+	req.Header.Add("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	testRouter.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusNotFound, w.Result().StatusCode)
+	var response ApiErrorResponse
+	mustUnmarshal(t, w.Body.String(), &response)
+	assert.Equal(t, ApiErrorCodeNotFound, response.Error.Code)
+}
+
+func TestRequiredAuthenticatedEndpoints(t *testing.T) {
+	uris := []struct {
+		method string
+		uri    string
+	}{
+		{method: http.MethodGet, uri: "/v1/cv"},
+		{method: http.MethodPost, uri: "/v1/cv"},
+		{method: http.MethodGet, uri: "/v1/cv/revisions"},
+		{method: http.MethodDelete, uri: "/v1/cv/revisions"},
+		{method: http.MethodPost, uri: "/v1/cv/preview"},
+	}
+
+	for _, u := range uris {
+		name := fmt.Sprintf("%s to %s", u.method, u.uri)
+		t.Run(name, func(t *testing.T) {
+			req := httptest.NewRequest(u.method, u.uri, nil)
+			req.Header.Add("Content-Type", "application/json")
+			w := httptest.NewRecorder()
+			testRouter.ServeHTTP(w, req)
+			assert.Equal(t, http.StatusForbidden, w.Result().StatusCode)
+		})
+	}
 }
 
 func TestPreview(t *testing.T) {

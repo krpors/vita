@@ -364,20 +364,15 @@ func ApiPostUserCvData(repo *MongoRepository) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		claims := r.Context().Value(ContextKeyClaims).(*CustomClaims)
 
-		b, err := io.ReadAll(r.Body)
-		if err != nil {
-			apiError := NewApiErrorResponse(ApiErrorCodeInternalError, "Unable to read HTTP request body")
-			render.Render(w, r, &apiError)
-			return
-		}
 		var cv CurriculumVitae
-		if err = json.Unmarshal(b, &cv); err != nil {
+		if err := render.Bind(r, &cv); err != nil {
+			log.Printf("Could not bind data: %s", err)
 			apiError := NewApiErrorResponse(ApiErrorCodeInvalid, "Unable to deserialize JSON properly: %s", err)
 			render.Render(w, r, &apiError)
 			return
 		}
 
-		if err = repo.SaveNewCV(r.Context(), claims.Subject, &cv); err != nil {
+		if err := repo.SaveNewCV(r.Context(), claims.Subject, &cv); err != nil {
 			apiError := NewApiErrorResponse(ApiErrorCodeInternalError, "Unable to persist CV entry")
 			render.Render(w, r, &apiError)
 			return
@@ -423,7 +418,7 @@ func ApiPostPreview() http.HandlerFunc {
 			return
 		}
 
-		log.Printf("Template specified: %s", previewReq.Template)
+		log.Printf("Template specified: %s", previewReq.Configuration.Template)
 
 		writeCvAsPDF(w, r, &previewReq.Cv)
 	}

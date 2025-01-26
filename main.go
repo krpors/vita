@@ -42,6 +42,7 @@ func createRouter(repo *MongoRepository) chi.Router {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
+	r.Use(middleware.AllowContentType("application/json"))
 
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 		resp := NewApiErrorResponse(ApiErrorCodeNotFound, "No handler is found for request URI '%s'", r.URL.Path)

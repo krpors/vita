@@ -174,6 +174,7 @@ func TestCreateAndGet(t *testing.T) {
 	body := mustReadFile("./testdata/entry.json")
 	bleh := strings.NewReader(body)
 	req := httptest.NewRequest(http.MethodPost, "/v1/cv", bleh)
+	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Authorization", "Bearer "+loginResponse.Jwt)
 
 	w := httptest.NewRecorder()
@@ -208,6 +209,44 @@ func TestCreateAndGet(t *testing.T) {
 
 	w = httptest.NewRecorder()
 	testRouter.ServeHTTP(w, req)
+
+	pdfHeader := w.Body.Next(4)
+	expected := []byte{0x25, 0x50, 0x44, 0x46} // PDF header magic
+	assert.Equal(t, 4, len(pdfHeader))
+	assert.Equal(t, expected, pdfHeader)
+	assert.Equal(t, 200, w.Result().StatusCode)
+}
+
+func TestPreview(t *testing.T) {
+	defer setupTestUser(t)()
+
+	// 1: login
+	loginResponse := login(t)
+
+	// 2: read CV data from file
+	var cvData CurriculumVitae
+	body := mustReadFile("./testdata/entry.json")
+	mustUnmarshal(t, body, &cvData)
+
+	previewData := PreviewRequest{
+		Configuration: PreviewConfiguration{
+			Template: "example",
+		},
+		Cv: cvData,
+	}
+
+	bs, err := json.Marshal(previewData)
+	require.Nilf(t, err, "must unlkasdjlksa")
+	bleh := bytes.NewReader(bs)
+	req := httptest.NewRequest(http.MethodPost, "/v1/cv/preview", bleh)
+	req.Header.Add("Authorization", "Bearer "+loginResponse.Jwt)
+	req.Header.Add("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+
+	testRouter.ServeHTTP(w, req)
+
+	assert.Equal(t, 200, w.Result().StatusCode)
 
 	pdfHeader := w.Body.Next(4)
 	expected := []byte{0x25, 0x50, 0x44, 0x46} // PDF header magic

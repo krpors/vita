@@ -44,6 +44,10 @@ type CurriculumVitae struct {
 	Custom       map[string]any `bson:"custom" json:"custom"`
 }
 
+func (cv *CurriculumVitae) Bind(r *http.Request) error {
+	return nil
+}
+
 type Address struct {
 	Street     string `bson:"street" json:"street"`
 	Number     int    `bson:"number" json:"number"`
@@ -119,8 +123,12 @@ type Interest struct {
 // PreviewRequest is used to generate a document for particular CV content,
 // without persisting it to a database.
 type PreviewRequest struct {
-	Template string          `json:"template"`
-	Cv       CurriculumVitae `json:"cv"`
+	Configuration PreviewConfiguration `json:"configuration"`
+	Cv            CurriculumVitae      `json:"cv"`
+}
+
+type PreviewConfiguration struct {
+	Template string `json:"template"`
 }
 
 func (req *PreviewRequest) Bind(r *http.Request) error {

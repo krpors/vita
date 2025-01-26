@@ -19,6 +19,14 @@ tags:
       CV generation related endpoints. These are mainly used for updating and generating a 'definitive'
       version of a particular CV. The previous versions can be retrieved using the 'revisions'. Only one
       'definitive' CV exists at a given time for a user, which is the most recent updated one.
+  - name: preview
+    description: |-
+        Generate a PDF document preview without persisting any data. This API call requires POST data in
+        the form of JSON according to the schema, runs the document generator and returns a stream of PDF bytes
+        if everything went well.
+
+        Even though this is a HTTP POST endpoint, it is an idempotent call. Nothing is persisted or changed in
+        the system.
   - name: revisions
     description: |-
       CV revisions. Once a new CV is posted to the `/v1/cv` endpoint, the current is moved to the
@@ -34,7 +42,7 @@ paths:
     post:
       tags:
         - cv
-      summary: Create a new CV entry.
+      summary: 'Create a new CV entry.'
       description: |-
         Authenticated needed. This endpoint will create a new CV entry for the user, identified
         by the claims given in the JWT. There is zero or one CV active at a given time. When new
@@ -71,7 +79,7 @@ paths:
       summary: Get the user's current CV data as JSON
       responses:
         200:
-          description: The CV is retrieved successfully.
+          description: The CV is retried successfully.
           content:
             application/pdf:
               schema:
@@ -91,6 +99,34 @@ paths:
                     allOf:
                       - $ref: '#/components/schemas/CurriculumVitae'
 
+  /v1/cv/preview:
+    post:
+      tags:
+        - preview
+      summary: Generate a PDf document preview without persisting anything.
+      requestBody:
+        description: Post CV JSON
+        content:
+          application/json:
+            schema:
+              allOf:
+                - $ref: '#/components/schemas/CurriculumVitae'
+      responses:
+        200:
+          description: OK
+          content:
+            application/pdf:
+              schema:
+                description: PDF in binary format
+                type: string
+                format: binary
+        500:
+          description: Error while generating the PDF
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiError'
   /v1/cv/revisions:
     get:
       tags:
@@ -160,16 +196,32 @@ components:
       description: Metadata returned by the API about a single CV.
       properties:
         owner:
-          type: object
-          properties:
-            $oid:
-              type: string
-              description: The object ID (from MongoDB)
-              example: 6752ea0f452abfaed6cc3bf2
+          type: string
+          description: The object ID (from MongoDB)
+          example: 6752ea0f452abfaed6cc3bf2
         version:
           type: integer
           description: The version of the returned CV. Positive integer.
           example: 4
+        changelog:
+          type: string
+          description: A changelog describing the changes made.
+
+    Preview:
+      type: object
+      description: Preview data structure
+      properties:
+        configuration:
+          type: object
+          description: Metadata for generation purposes
+          properties:
+            template:
+              type: string
+        cv:
+          type: object
+          description: CV data to supply to the generator
+          allOf:
+            - $ref: '#/components/schemas/CurriculumVitae'
 
     CurriculumVitae:
       type: object

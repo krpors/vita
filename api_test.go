@@ -12,6 +12,8 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
@@ -22,15 +24,20 @@ var (
 	testRouter      chi.Router
 )
 
-func mustUnmarshal(t *testing.T, rc io.ReadCloser, v any) {
-	b, err := io.ReadAll(rc)
+func mustUnmarshal(t *testing.T, response string, v any) {
+	err := json.Unmarshal([]byte(response), v)
+	require.Nilf(t, err, "unmarshalling must succeed without error")
+}
+
+func mustReadFile(file string) string {
+	f, err := os.Open("testdata/entry.json")
 	if err != nil {
-		t.Errorf("unable to read body: %s", err)
+		panic("can't read " + file + " due to " + err.Error())
 	}
-	err = json.Unmarshal(b, v)
-	if err != nil {
-		t.Errorf("unable to unmarshal: %s", err)
-	}
+	defer f.Close()
+
+	s := mustRead(f)
+	return s
 }
 
 func mustRead(rc io.ReadCloser) string {
@@ -54,9 +61,7 @@ func setupTestUser(t *testing.T) func() {
 		Password: "testuser",
 	})
 
-	if err != nil {
-		t.Fatal("Could not create testing user", err)
-	}
+	require.Nilf(t, err, "could not create a testing user", err)
 
 	return func() {
 		testRepo.DeleteUser(context.TODO(), objectId.Hex())
@@ -96,16 +101,12 @@ func TestMethodNotAllowed(t *testing.T) {
 	result := w.Result()
 	defer result.Body.Close()
 
-	if w.Result().StatusCode != 405 {
-		t.Errorf("expected status code 405")
-	}
+	assert.Equal(t, 405, w.Result().StatusCode)
 
 	var errResponse ApiErrorResponse
-	mustUnmarshal(t, w.Result().Body, &errResponse)
+	mustUnmarshal(t, w.Body.String(), &errResponse)
 
-	if errResponse.Error.Code != ApiErrorCodeMethodNotAllowed {
-		t.Errorf("expected 405 here")
-	}
+	assert.Equal(t, ApiErrorCodeMethodNotAllowed, errResponse.Error.Code)
 }
 
 // TODO: fix this
@@ -135,8 +136,7 @@ func _TestCreateUser(t *testing.T) {
 	defer result.Body.Close()
 
 	if w.Result().StatusCode != 200 {
-		body := mustRead(w.Result().Body)
-		t.Errorf("statuscode is not 200 but %d. Response is '%s'", w.Result().StatusCode, body)
+		t.Errorf("statuscode is not 200 but %d. Response is '%s'", w.Result().StatusCode, w.Body.String())
 	}
 }
 
@@ -162,23 +162,58 @@ func TestLoginOk(t *testing.T) {
 	t.Logf("JWT: %s", response.Jwt)
 }
 
-func TestGetCv(t *testing.T) {
-	r := createRouter(&testRepo)
-
+// Tests the creation of a CV, getting it as JSON and getting it as PDF.
+// This test obviously requires typst to be available on the PATH.
+func TestCreateAndGet(t *testing.T) {
 	defer setupTestUser(t)()
 
-	req := httptest.NewRequest(http.MethodGet, "/v1/cv", nil)
+	// 1: login
+	loginResponse := login(t)
 
-	req.Header.Add("Accept", "application/json")
-	// req.Header.Add("Authorization", "Bearer "+response.Jwt)
+	// 2: create cv
+	body := mustReadFile("./testdata/entry.json")
+	bleh := strings.NewReader(body)
+	req := httptest.NewRequest(http.MethodPost, "/v1/cv", bleh)
+	req.Header.Add("Authorization", "Bearer "+loginResponse.Jwt)
+
 	w := httptest.NewRecorder()
 
-	r.ServeHTTP(w, req)
-	result := w.Result()
-	defer result.Body.Close()
+	testRouter.ServeHTTP(w, req)
 
-	var balls CurriculumVitaeDocument
-	mustUnmarshal(t, w.Result().Body, &balls)
+	assert.Equal(t, 200, w.Result().StatusCode)
+
+	// 3: get cv as JSON
+	req = httptest.NewRequest(http.MethodGet, "/v1/cv", nil)
+	req.Header.Add("Accept", "application/json")
+	req.Header.Add("Authorization", "Bearer "+loginResponse.Jwt)
+
+	w = httptest.NewRecorder()
+	testRouter.ServeHTTP(w, req)
+
+	assert.Equal(t, 200, w.Result().StatusCode)
+
+	var cv CurriculumVitaeDocument
+	mustUnmarshal(t, w.Body.String(), &cv)
+
+	// some sanity checks here
+	assert.Equal(t, 1, cv.Metadata.Version)
+	assert.Equal(t, "John", cv.Cv.FirstName)
+	assert.Equal(t, "Doe", cv.Cv.LastName)
+	assert.Equal(t, 2, len(cv.Cv.Links))
+
+	// 4: get cv as PDF
+	req = httptest.NewRequest(http.MethodGet, "/v1/cv", nil)
+	req.Header.Add("Accept", "application/pdf")
+	req.Header.Add("Authorization", "Bearer "+loginResponse.Jwt)
+
+	w = httptest.NewRecorder()
+	testRouter.ServeHTTP(w, req)
+
+	pdfHeader := w.Body.Next(4)
+	expected := []byte{0x25, 0x50, 0x44, 0x46} // PDF header magic
+	assert.Equal(t, 4, len(pdfHeader))
+	assert.Equal(t, expected, pdfHeader)
+	assert.Equal(t, 200, w.Result().StatusCode)
 }
 
 // logins using the API with a correct username and password against the
@@ -199,13 +234,8 @@ func login(t *testing.T) LoginResponse {
 		t.Errorf("Expected to login with the credentials!")
 	}
 
-	body, err := io.ReadAll(w.Result().Body)
-	if err != nil {
-		t.Errorf("Unable to read body: %s", err)
-	}
-
 	var loginResponse LoginResponse
-	if err := json.Unmarshal(body, &loginResponse); err != nil {
+	if err := json.Unmarshal(w.Body.Bytes(), &loginResponse); err != nil {
 		t.Errorf("Unable to unmarshal to LoginResponse")
 	}
 

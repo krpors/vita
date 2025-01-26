@@ -21,6 +21,7 @@ type Metadata struct {
 }
 
 type CurriculumVitae struct {
+	Titles       []string       `bson:"titles" json:"titles"`
 	FirstName    string         `bson:"first_name" json:"first_name"`
 	MiddleNames  []string       `bson:"middle_names" json:"middle_names"`
 	LastName     string         `bson:"last_name" json:"last_name"`

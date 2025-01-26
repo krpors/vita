@@ -105,7 +105,7 @@ func JWTAuthMiddleware(next http.Handler) http.Handler {
 		authHeader := r.Header.Get("authorization")
 		token, found := strings.CutPrefix(authHeader, "Bearer ")
 		if !found {
-			apiError := NewApiErrorResponse(ApiErrorCodeInternalError, "No Bearer token present in Authorization header")
+			apiError := NewApiErrorResponse(ApiErrorCodeForbidden, "No Bearer token present in Authorization header")
 			render.Render(w, r, &apiError)
 			return
 		}
@@ -263,6 +263,7 @@ func ApiLogin(repo *MongoRepository) http.HandlerFunc {
 // In case anything fails while running the command or connecting the stdout or
 // stderr pipes, error is non-nil and the byte slice will remain nil.
 func runCommand(cv *CurriculumVitae) ([]byte, error) {
+	startOfGeneration := time.Now()
 	log.Printf("Executing PDF generation for CV...")
 
 	bytes, _ := json.Marshal(cv)
@@ -309,6 +310,8 @@ func runCommand(cv *CurriculumVitae) ([]byte, error) {
 		log.Printf("Command exited with statuscode %d. Error message is: %s", exitError.ExitCode(), stderrBytes)
 		return nil, err
 	}
+
+	log.Printf("Generation took %d ms", time.Since(startOfGeneration).Milliseconds())
 
 	return stdoutBytes, nil
 }
@@ -369,7 +372,7 @@ func ApiPostUserCvData(repo *MongoRepository) http.HandlerFunc {
 		}
 		var cv CurriculumVitae
 		if err = json.Unmarshal(b, &cv); err != nil {
-			apiError := NewApiErrorResponse(ApiErrorCodeInvalid, "Unable to deserialize JSON properly")
+			apiError := NewApiErrorResponse(ApiErrorCodeInvalid, "Unable to deserialize JSON properly: %s", err)
 			render.Render(w, r, &apiError)
 			return
 		}

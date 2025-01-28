@@ -95,6 +95,7 @@ func main() {
 	repo := NewMongoRepository(client)
 	r := createRouter(&repo)
 
+	log.Printf("Starting webserver on :8080")
 	http.ListenAndServe(":8080", r)
 }
 

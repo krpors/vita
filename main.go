@@ -66,10 +66,35 @@ func createRouter(repo *MongoRepository) chi.Router {
 		r.Delete("/v1/cv/revisions/{version}", ApiDeleteSingleRevision(repo))
 	})
 
+	r.Get("/index.html", HtmlMain(repo))
+	r.Post("/clicked", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("<a href=\"http://google.com\">google!</a>"))
+	})
+
 	printRoutes(r)
 
 	return r
 }
+
+// func main() {
+// 	t, err := template.ParseGlob("./web/**.*")
+// 	for _, z := range t.Templates() {
+// 		fmt.Printf("%s\n", z.Name())
+// 	}
+// 	if err != nil {
+// 		panic(err)
+// 	}
+
+// 	page1, err := template.ParseFiles("./web/base.html", "./web/page1.html")
+// 	if err != nil {
+// 		panic(fmt.Sprintf("Eh? %s", err))
+// 	}
+
+// 	err = page1.ExecuteTemplate(os.Stdout, "base", nil)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// }
 
 func main() {
 	log.Printf("This is Vita, the CV generator backend (commit %s)", CommitHash)

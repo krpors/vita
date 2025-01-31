@@ -210,17 +210,11 @@ func TestCreateAndGet(t *testing.T) {
 	w = httptest.NewRecorder()
 	testRouter.ServeHTTP(w, req)
 
-	f, err := os.Create("example.pdf")
-	if err != nil {
-		assert.FailNow(t, "nil")
-	}
-	w.Body.WriteTo(f)
-
-	// pdfHeader := w.Body.Next(4)
-	// expected := []byte{0x25, 0x50, 0x44, 0x46} // PDF header magic
-	// assert.Equal(t, 4, len(pdfHeader))
-	// assert.Equal(t, expected, pdfHeader)
-	// assert.Equal(t, 200, w.Result().StatusCode)
+	pdfHeader := w.Body.Next(4)
+	expected := []byte{0x25, 0x50, 0x44, 0x46} // PDF header magic
+	assert.Equal(t, 4, len(pdfHeader))
+	assert.Equal(t, expected, pdfHeader)
+	assert.Equal(t, 200, w.Result().StatusCode)
 }
 
 func TestNoRegisteredUri(t *testing.T) {

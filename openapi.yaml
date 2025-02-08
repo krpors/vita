@@ -29,7 +29,7 @@ tags:
         the system.
   - name: revisions
     description: |-
-      CV revisions. Once a new CV is posted to the `/v1/cv` endpoint, the current is moved to the
+      CV revisions. Once a new CV is posted to the `/api/v1/cv` endpoint, the current is moved to the
       revisions.
   - name: development
     description: |-
@@ -38,7 +38,7 @@ tags:
   - name: login
     description: Used to authenticate users to the system.
 paths:
-  /v1/cv:
+  /api/v1/cv:
     post:
       tags:
         - cv
@@ -99,7 +99,7 @@ paths:
                     allOf:
                       - $ref: '#/components/schemas/CurriculumVitae'
 
-  /v1/cv/preview:
+  /api/v1/cv/preview:
     post:
       tags:
         - preview
@@ -127,7 +127,7 @@ paths:
               schema:
                 allOf:
                   - $ref: '#/components/schemas/ApiError'
-  /v1/cv/revisions:
+  /api/v1/cv/revisions:
     get:
       tags:
         - revisions
@@ -152,7 +152,7 @@ paths:
                         - $ref: '#/components/schemas/CurriculumVitae'
 
 
-  /v1/login:
+  /api/v1/login:
     post:
       tags:
         - login

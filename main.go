@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/render"
 
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -44,26 +43,14 @@ func createRouter(repo *MongoRepository) chi.Router {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.AllowContentType("application/json"))
 
-	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
-		resp := NewApiErrorResponse(ApiErrorCodeNotFound, "No handler is found for request URI '%s'", r.URL.Path)
-		render.Render(w, r, &resp)
-	})
+	apiResource := VitaJsonAPIResource{
+		Repo: repo,
+	}
 
-	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
-		resp := NewApiErrorResponse(ApiErrorCodeMethodNotAllowed, "The method %s is not allowed on the endpoint '%s'", r.Method, r.URL.Path)
-		render.Render(w, r, &resp)
-	})
+	r.Mount("/api/v1", apiResource.Routes())
 
-	r.Post("/v1/login", ApiLogin(repo))
-	r.Post("/v1/user", ApiCreateUser(repo))
-	r.Group(func(r chi.Router) {
-		r.Use(JWTAuthMiddleware)
-		r.Get("/v1/cv", ApiGetUserCvData(repo))
-		r.Post("/v1/cv", ApiPostUserCvData(repo))
-		r.Get("/v1/cv/revisions", ApiGetRevisions(repo))
-		r.Post("/v1/cv/preview", ApiPostPreview())
-		r.Delete("/v1/cv/revisions", ApiDeleteAllRevisions(repo))
-		r.Delete("/v1/cv/revisions/{version}", ApiDeleteSingleRevision(repo))
+	r.Get("/home", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("hello"))
 	})
 
 	printRoutes(r)

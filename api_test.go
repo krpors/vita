@@ -23,6 +23,7 @@ import (
 var (
 	testMongoClient *mongo.Client
 	testRepo        MongoRepository
+	testApiResource *VitaJsonAPIResource
 	testRouter      chi.Router
 )
 
@@ -93,12 +94,11 @@ func createTestingMongoClient() *mongo.Client {
 // authenticated tests.
 func login(t *testing.T) LoginResponse {
 	reader := strings.NewReader(`{ "username": "testuser", "password": "testuser"}`)
-	req := httptest.NewRequest(http.MethodGet, "/v1/login", reader)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/login", reader)
 	req.Header.Add("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
-	f := ApiLogin(&testRepo)
-	f.ServeHTTP(w, req)
+	testApiResource.ApiLogin(w, req)
 	result := w.Result()
 	defer result.Body.Close()
 
@@ -119,13 +119,16 @@ func TestMain(t *testing.M) {
 	defer testMongoClient.Disconnect(context.TODO())
 	testRepo = NewMongoRepository(testMongoClient)
 	testRouter = createRouter(&testRepo)
+	testApiResource = &VitaJsonAPIResource{
+		Repo: &testRepo,
+	}
 	code := t.Run()
 	os.Exit(code)
 }
 
 func TestMethodNotAllowed(t *testing.T) {
-	// GET is not allowed on /v1/user
-	req := httptest.NewRequest(http.MethodGet, "/v1/user", nil)
+	// GET is not allowed on /api/v1/user
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/user", nil)
 	w := httptest.NewRecorder()
 
 	testRouter.ServeHTTP(w, req)
@@ -142,12 +145,11 @@ func TestMethodNotAllowed(t *testing.T) {
 
 func TestLoginFailure(t *testing.T) {
 	reader := strings.NewReader(`{ "username": "kpors", "password": "incorrectpasswordhere"}`)
-	req := httptest.NewRequest(http.MethodGet, "/v1/login", reader)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/login", reader)
 	req.Header.Add("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 
-	f := ApiLogin(&testRepo)
-	f.ServeHTTP(w, req)
+	testApiResource.ApiLogin(w, req)
 	result := w.Result()
 	defer result.Body.Close()
 
@@ -173,7 +175,7 @@ func TestCreateAndGet(t *testing.T) {
 	// 2: create cv
 	body := mustReadFile("./testdata/entry.json")
 	bleh := strings.NewReader(body)
-	req := httptest.NewRequest(http.MethodPost, "/v1/cv", bleh)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/cv", bleh)
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Authorization", "Bearer "+loginResponse.Jwt)
 
@@ -184,7 +186,7 @@ func TestCreateAndGet(t *testing.T) {
 	assert.Equal(t, 200, w.Result().StatusCode)
 
 	// 3: get cv as JSON
-	req = httptest.NewRequest(http.MethodGet, "/v1/cv", nil)
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/cv", nil)
 	req.Header.Add("Accept", "application/json")
 	req.Header.Add("Authorization", "Bearer "+loginResponse.Jwt)
 
@@ -203,7 +205,7 @@ func TestCreateAndGet(t *testing.T) {
 	assert.Equal(t, 2, len(cv.Cv.Links))
 
 	// 4: get cv as PDF
-	req = httptest.NewRequest(http.MethodGet, "/v1/cv", nil)
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/cv", nil)
 	req.Header.Add("Accept", "application/pdf")
 	req.Header.Add("Authorization", "Bearer "+loginResponse.Jwt)
 
@@ -224,7 +226,7 @@ func TestCreateAndGet(t *testing.T) {
 }
 
 func TestNoRegisteredUri(t *testing.T) {
-	req := httptest.NewRequest(http.MethodGet, "/non-existent-uri", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/non-existent-uri", nil)
 	req.Header.Add("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	testRouter.ServeHTTP(w, req)
@@ -239,11 +241,11 @@ func TestRequiredAuthenticatedEndpoints(t *testing.T) {
 		method string
 		uri    string
 	}{
-		{method: http.MethodGet, uri: "/v1/cv"},
-		{method: http.MethodPost, uri: "/v1/cv"},
-		{method: http.MethodGet, uri: "/v1/cv/revisions"},
-		{method: http.MethodDelete, uri: "/v1/cv/revisions"},
-		{method: http.MethodPost, uri: "/v1/cv/preview"},
+		{method: http.MethodGet, uri: "/api/v1/cv"},
+		{method: http.MethodPost, uri: "/api/v1/cv"},
+		{method: http.MethodGet, uri: "/api/v1/cv/revisions"},
+		{method: http.MethodDelete, uri: "/api/v1/cv/revisions"},
+		{method: http.MethodPost, uri: "/api/v1/cv/preview"},
 	}
 
 	for _, u := range uris {
@@ -279,7 +281,7 @@ func TestPreview(t *testing.T) {
 	bs, err := json.Marshal(previewData)
 	require.Nilf(t, err, "must unlkasdjlksa")
 	bleh := bytes.NewReader(bs)
-	req := httptest.NewRequest(http.MethodPost, "/v1/cv/preview", bleh)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/cv/preview", bleh)
 	req.Header.Add("Authorization", "Bearer "+loginResponse.Jwt)
 	req.Header.Add("Content-Type", "application/json")
 

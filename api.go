@@ -92,6 +92,38 @@ type LoginResponse struct {
 	Jwt string `json:"jwt"`
 }
 
+type VitaJsonAPIResource struct {
+	Repo *MongoRepository
+}
+
+func (api *VitaJsonAPIResource) Routes() chi.Router {
+	r := chi.NewRouter()
+
+	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		resp := NewApiErrorResponse(ApiErrorCodeNotFound, "No handler is found for request URI '%s'", r.URL.Path)
+		render.Render(w, r, &resp)
+	})
+
+	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
+		resp := NewApiErrorResponse(ApiErrorCodeMethodNotAllowed, "The method %s is not allowed on the endpoint '%s'", r.Method, r.URL.Path)
+		render.Render(w, r, &resp)
+	})
+
+	r.Post("/login", api.ApiLogin)
+	r.Post("/user", api.ApiCreateUser)
+	r.Group(func(r chi.Router) {
+		r.Use(JWTAuthMiddleware)
+		r.Get("/cv", api.ApiGetUserCvData)
+		r.Post("/cv", api.ApiPostUserCvData)
+		r.Get("/cv/revisions", api.ApiGetRevisions)
+		r.Post("/cv/preview", api.ApiPostPreview)
+		r.Delete("/cv/revisions", api.ApiDeleteAllRevisions)
+		r.Delete("/cv/revisions/{version}", api.ApiDeleteSingleRevision)
+	})
+
+	return r
+}
+
 // This is a Chi middleware function to authenticate a request by parsing
 // and validating a Bearer token (JWT). Only if the token can be properly
 // read and validated, the middleware allows further processing.
@@ -179,82 +211,78 @@ func SortByVersion() func(left, right CurriculumVitaeDocument) int {
 // API REST handler functions
 // =============================================================================
 
-func ApiCreateUser(repo *MongoRepository) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var request CreateUserRequest
-		err := render.Bind(r, &request)
+func (api *VitaJsonAPIResource) ApiCreateUser(w http.ResponseWriter, r *http.Request) {
+	var request CreateUserRequest
+	err := render.Bind(r, &request)
 
-		if err != nil {
-			apiResponse := NewApiErrorResponse(ApiErrorCodeInvalid, "unable to read request")
-			render.Render(w, r, &apiResponse)
-			return
-		}
+	if err != nil {
+		apiResponse := NewApiErrorResponse(ApiErrorCodeInvalid, "unable to read request")
+		render.Render(w, r, &apiResponse)
+		return
+	}
 
-		user := User{
-			Username: request.Username,
-			Password: request.Password,
-		}
-		_, err = repo.CreateUser(r.Context(), user)
-		if err != nil {
-			apiError := NewApiErrorResponse(ApiErrorCodeInvalid, "an account with that username already exists")
-			render.Render(w, r, &apiError)
-			return
-		}
+	user := User{
+		Username: request.Username,
+		Password: request.Password,
+	}
+	_, err = api.Repo.CreateUser(r.Context(), user)
+	if err != nil {
+		apiError := NewApiErrorResponse(ApiErrorCodeInvalid, "an account with that username already exists")
+		render.Render(w, r, &apiError)
+		return
 	}
 }
 
 // API call to login to the system using the MongoDB backend.
-func ApiLogin(repo *MongoRepository) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// form-stuff:
-		// err := r.ParseForm()
-		// if err != nil {
-		// 	apiError := NewApiErrorResponse(ApiErrorCodeInvalid, "Could not parse the form request")
-		// 	render.Render(w, r, &apiError)
-		// 	return
-		// }
+func (api *VitaJsonAPIResource) ApiLogin(w http.ResponseWriter, r *http.Request) {
+	// form-stuff:
+	// err := r.ParseForm()
+	// if err != nil {
+	// 	apiError := NewApiErrorResponse(ApiErrorCodeInvalid, "Could not parse the form request")
+	// 	render.Render(w, r, &apiError)
+	// 	return
+	// }
 
-		// user := r.FormValue("username")
-		// pass := r.FormValue("password")
-		loginRequest := &LoginRequest{}
-		if err := render.Bind(r, loginRequest); err != nil {
-			log.Printf("Error occurred while trying to bind: %s", err)
-			apiError := NewApiErrorResponse(ApiErrorCodeInternalError, "Could not bind login properties!")
-			render.Render(w, r, &apiError)
-			return
-		}
-
-		log.Printf("Authentication attempt for username '%s'", loginRequest.Username)
-		mongoUser, found, err := repo.Authenticate(r.Context(), loginRequest.Username, loginRequest.Password)
-
-		if err != nil {
-			apiError := NewApiErrorResponse(ApiErrorCodeInternalError, "Unable to authenticate due to an internal server error")
-			render.Render(w, r, &apiError)
-			return
-		}
-
-		if !found {
-			apiError := NewApiErrorResponse(ApiErrorCodeForbidden, "Unauthorized to login with the given credentials")
-			render.Render(w, r, &apiError)
-			return
-		}
-
-		// User is found
-		token := jwt.NewWithClaims(jwt.SigningMethodHS256, NewCustomClaims(mongoUser))
-		w.Header().Add("Content-Type", "application/json")
-		w.WriteHeader(200)
-		tokenString, err := token.SignedString([]byte("secretsecret"))
-		if err != nil {
-			log.Printf("Could not sign token? %s", err)
-		}
-
-		resp := LoginResponse{
-			Jwt: tokenString,
-		}
-
-		val, _ := json.Marshal(resp)
-		w.Write(val)
+	// user := r.FormValue("username")
+	// pass := r.FormValue("password")
+	loginRequest := &LoginRequest{}
+	if err := render.Bind(r, loginRequest); err != nil {
+		log.Printf("Error occurred while trying to bind: %s", err)
+		apiError := NewApiErrorResponse(ApiErrorCodeInternalError, "Could not bind login properties!")
+		render.Render(w, r, &apiError)
+		return
 	}
+
+	log.Printf("Authentication attempt for username '%s'", loginRequest.Username)
+	mongoUser, found, err := api.Repo.Authenticate(r.Context(), loginRequest.Username, loginRequest.Password)
+
+	if err != nil {
+		apiError := NewApiErrorResponse(ApiErrorCodeInternalError, "Unable to authenticate due to an internal server error")
+		render.Render(w, r, &apiError)
+		return
+	}
+
+	if !found {
+		apiError := NewApiErrorResponse(ApiErrorCodeForbidden, "Unauthorized to login with the given credentials")
+		render.Render(w, r, &apiError)
+		return
+	}
+
+	// User is found
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, NewCustomClaims(mongoUser))
+	w.Header().Add("Content-Type", "application/json")
+	w.WriteHeader(200)
+	tokenString, err := token.SignedString([]byte("secretsecret"))
+	if err != nil {
+		log.Printf("Could not sign token? %s", err)
+	}
+
+	resp := LoginResponse{
+		Jwt: tokenString,
+	}
+
+	val, _ := json.Marshal(resp)
+	w.Write(val)
 }
 
 // runCommand runs the typst command with a template, using a serialized
@@ -331,144 +359,133 @@ func writeCvAsPDF(w http.ResponseWriter, r *http.Request, cv *CurriculumVitae) {
 
 // Get user CV data, using the JWT provided. This call should be protected by JWT
 // middleware.
-func ApiGetUserCvData(repo *MongoRepository) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		claims := r.Context().Value(ContextKeyClaims).(*CustomClaims)
-		cv, found, err := repo.GetCurrentCV(r.Context(), claims.Subject)
+func (api *VitaJsonAPIResource) ApiGetUserCvData(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(ContextKeyClaims).(*CustomClaims)
+	cv, found, err := api.Repo.GetCurrentCV(r.Context(), claims.Subject)
 
-		if err != nil {
-			apiError := NewApiErrorResponse(ApiErrorCodeInternalError, "Shit: %s", err)
-			render.Render(w, r, &apiError)
-			return
-		}
-
-		accept := r.Header.Get("accept")
-
-		if !found {
-			apiError := NewApiErrorResponse(ApiErrorCodeResourceNotFound, "The current user does not have a persisted CV (yet)")
-			render.Render(w, r, &apiError)
-			return
-		}
-
-		if accept == "application/pdf" {
-			writeCvAsPDF(w, r, &cv.Cv)
-			return
-		} else {
-			b, _ := json.Marshal(cv)
-			w.Write(b)
-		}
+	if err != nil {
+		apiError := NewApiErrorResponse(ApiErrorCodeInternalError, "Shit: %s", err)
+		render.Render(w, r, &apiError)
+		return
 	}
+
+	accept := r.Header.Get("accept")
+
+	if !found {
+		apiError := NewApiErrorResponse(ApiErrorCodeResourceNotFound, "The current user does not have a persisted CV (yet)")
+		render.Render(w, r, &apiError)
+		return
+	}
+
+	if accept == "application/pdf" {
+		writeCvAsPDF(w, r, &cv.Cv)
+		return
+	} else {
+		b, _ := json.Marshal(cv)
+		w.Write(b)
+	}
+
 }
 
-func ApiPostUserCvData(repo *MongoRepository) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		claims := r.Context().Value(ContextKeyClaims).(*CustomClaims)
+func (api *VitaJsonAPIResource) ApiPostUserCvData(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(ContextKeyClaims).(*CustomClaims)
 
-		var cv CurriculumVitae
-		if err := render.Bind(r, &cv); err != nil {
-			log.Printf("Could not bind data: %s", err)
-			apiError := NewApiErrorResponse(ApiErrorCodeInvalid, "Unable to deserialize JSON properly: %s", err)
-			render.Render(w, r, &apiError)
-			return
-		}
+	var cv CurriculumVitae
+	if err := render.Bind(r, &cv); err != nil {
+		log.Printf("Could not bind data: %s", err)
+		apiError := NewApiErrorResponse(ApiErrorCodeInvalid, "Unable to deserialize JSON properly: %s", err)
+		render.Render(w, r, &apiError)
+		return
+	}
 
-		if err := repo.SaveNewCV(r.Context(), claims.Subject, &cv); err != nil {
-			apiError := NewApiErrorResponse(ApiErrorCodeInternalError, "Unable to persist CV entry")
-			render.Render(w, r, &apiError)
-			return
-		}
+	if err := api.Repo.SaveNewCV(r.Context(), claims.Subject, &cv); err != nil {
+		apiError := NewApiErrorResponse(ApiErrorCodeInternalError, "Unable to persist CV entry")
+		render.Render(w, r, &apiError)
+		return
 	}
 
 }
 
 // ApiGetRevisions gets the CV revisions a user may have.
-func ApiGetRevisions(repo *MongoRepository) http.HandlerFunc {
-
-	return func(w http.ResponseWriter, r *http.Request) {
-		claims := r.Context().Value(ContextKeyClaims).(*CustomClaims)
-		revisions, err := repo.FindRevisionsForUser(r.Context(), claims.Subject)
-		if err != nil {
-			apiError := NewApiErrorResponse(ApiErrorCodeInternalError, "Could not fetch revisions")
-			render.Render(w, r, &apiError)
-			return
-		}
-
-		slices.SortFunc(revisions, SortByVersion())
-
-		b, err := json.Marshal(revisions)
-		if err != nil {
-			apiError := NewApiErrorResponse(ApiErrorCodeInternalError, "Could not render revisions")
-			render.Render(w, r, &apiError)
-			return
-		}
-
-		w.Write(b)
+func (api *VitaJsonAPIResource) ApiGetRevisions(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(ContextKeyClaims).(*CustomClaims)
+	revisions, err := api.Repo.FindRevisionsForUser(r.Context(), claims.Subject)
+	if err != nil {
+		apiError := NewApiErrorResponse(ApiErrorCodeInternalError, "Could not fetch revisions")
+		render.Render(w, r, &apiError)
+		return
 	}
+
+	slices.SortFunc(revisions, SortByVersion())
+
+	b, err := json.Marshal(revisions)
+	if err != nil {
+		apiError := NewApiErrorResponse(ApiErrorCodeInternalError, "Could not render revisions")
+		render.Render(w, r, &apiError)
+		return
+	}
+
+	w.Write(b)
+
 }
 
-func ApiPostPreview() http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		log.Printf("Creating a preview document")
+func (api *VitaJsonAPIResource) ApiPostPreview(w http.ResponseWriter, r *http.Request) {
+	log.Printf("Creating a preview document")
 
-		var previewReq PreviewRequest
-		b, _ := io.ReadAll(r.Body)
-		if err := json.Unmarshal(b, &previewReq); err != nil {
-			apiError := NewApiErrorResponse(ApiErrorCodeInvalid, "Could not parse JSON: %s", err)
-			render.Render(w, r, &apiError)
-			return
-		}
-
-		log.Printf("Template specified: %s", previewReq.Configuration.Template)
-
-		writeCvAsPDF(w, r, &previewReq.Cv)
+	var previewReq PreviewRequest
+	b, _ := io.ReadAll(r.Body)
+	if err := json.Unmarshal(b, &previewReq); err != nil {
+		apiError := NewApiErrorResponse(ApiErrorCodeInvalid, "Could not parse JSON: %s", err)
+		render.Render(w, r, &apiError)
+		return
 	}
+
+	log.Printf("Template specified: %s", previewReq.Configuration.Template)
+
+	writeCvAsPDF(w, r, &previewReq.Cv)
 }
 
-func ApiDeleteAllRevisions(repo *MongoRepository) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		claims := r.Context().Value(ContextKeyClaims).(*CustomClaims)
+func (api *VitaJsonAPIResource) ApiDeleteAllRevisions(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(ContextKeyClaims).(*CustomClaims)
 
-		log.Printf("Attempting to delete ALL revisions for user %s", claims.Subject)
+	log.Printf("Attempting to delete ALL revisions for user %s", claims.Subject)
 
-		deleted, err := repo.DeleteAllRevisions(r.Context(), claims.Subject)
-		if err != nil {
-			apiError := NewApiErrorResponse(ApiErrorCodeInternalError, "Unable to delete revision due to a internal error")
-			render.Render(w, r, &apiError)
-			return
-		}
-
-		log.Printf("Deleted all %d revisions for user %s", deleted, claims.Subject)
+	deleted, err := api.Repo.DeleteAllRevisions(r.Context(), claims.Subject)
+	if err != nil {
+		apiError := NewApiErrorResponse(ApiErrorCodeInternalError, "Unable to delete revision due to a internal error")
+		render.Render(w, r, &apiError)
+		return
 	}
+
+	log.Printf("Deleted all %d revisions for user %s", deleted, claims.Subject)
 }
 
-func ApiDeleteSingleRevision(repo *MongoRepository) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		claims := r.Context().Value(ContextKeyClaims).(*CustomClaims)
+func (api *VitaJsonAPIResource) ApiDeleteSingleRevision(w http.ResponseWriter, r *http.Request) {
+	claims := r.Context().Value(ContextKeyClaims).(*CustomClaims)
 
-		versionToDelete := chi.URLParam(r, "version")
-		version, err := strconv.Atoi(versionToDelete)
-		if err != nil {
-			apiError := NewApiErrorResponse(ApiErrorCodeInvalid, "Could not use path variable '%s' as a version integer. Please specify a version number.", versionToDelete)
-			render.Render(w, r, &apiError)
-			return
-		}
+	versionToDelete := chi.URLParam(r, "version")
+	version, err := strconv.Atoi(versionToDelete)
+	if err != nil {
+		apiError := NewApiErrorResponse(ApiErrorCodeInvalid, "Could not use path variable '%s' as a version integer. Please specify a version number.", versionToDelete)
+		render.Render(w, r, &apiError)
+		return
+	}
 
-		log.Printf("Attempting to delete revision %s for user %s", versionToDelete, claims.Subject)
+	log.Printf("Attempting to delete revision %s for user %s", versionToDelete, claims.Subject)
 
-		deleted, err := repo.DeleteSingleRevision(r.Context(), claims.Subject, version)
-		if err != nil {
-			apiError := NewApiErrorResponse(ApiErrorCodeInternalError, "Unable to delete revision due to a internal error")
-			render.Render(w, r, &apiError)
-			return
-		}
+	deleted, err := api.Repo.DeleteSingleRevision(r.Context(), claims.Subject, version)
+	if err != nil {
+		apiError := NewApiErrorResponse(ApiErrorCodeInternalError, "Unable to delete revision due to a internal error")
+		render.Render(w, r, &apiError)
+		return
+	}
 
-		if deleted {
-			log.Printf("Deleted revision!")
-		} else {
-			log.Printf("No revision with version %s for user %s could be found to delete", versionToDelete, claims.Subject)
-			apiError := NewApiErrorResponse(ApiErrorCodeResourceNotFound, "No revision with version %s could be found to delete", versionToDelete)
-			render.Render(w, r, &apiError)
-			return
-		}
+	if deleted {
+		log.Printf("Deleted revision!")
+	} else {
+		log.Printf("No revision with version %s for user %s could be found to delete", versionToDelete, claims.Subject)
+		apiError := NewApiErrorResponse(ApiErrorCodeResourceNotFound, "No revision with version %s could be found to delete", versionToDelete)
+		render.Render(w, r, &apiError)
+		return
 	}
 }

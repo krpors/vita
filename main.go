@@ -66,12 +66,16 @@ func createRouter(repo *MongoRepository) chi.Router {
 		r.Delete("/v1/cv/revisions/{version}", ApiDeleteSingleRevision(repo))
 	})
 
-	r.Get("/index.html", HtmlMain(repo))
-	r.Post("/clicked", func(w http.ResponseWriter, r *http.Request) {
+	sub := chi.NewRouter()
+	sub.Get("/", HtmlMain(repo))
+	sub.Get("/page2", HtmlMain(repo))
+	sub.Post("/clicked", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("<a href=\"http://google.com\">google!</a>"))
 	})
 
 	printRoutes(r)
+
+	r.
 
 	return r
 }
@@ -122,6 +126,7 @@ func main() {
 
 	log.Printf("Starting webserver on :8080")
 	http.ListenAndServe(":8080", r)
+
 }
 
 // https://pkg.go.dev/go.mongodb.org/mongo-driver/v2#section-readme

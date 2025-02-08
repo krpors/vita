@@ -123,9 +123,8 @@ Here are some keywords that describe my personality traits:
 These are links to my relevant websites.
 
 #for value in cv.links {
-	[- #text(value.title, weight: "bold"): #text(value.href, style: "italic")]
+	[- #text(value.title, weight: "bold"): #link(value.href)[#value.href]]
 }
-
 
 = Interests
 

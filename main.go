@@ -2,9 +2,12 @@ package main
 
 import (
 	"context"
+	"io"
 	"log"
 	"net/http"
+	"os/exec"
 	"reflect"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -58,8 +61,35 @@ func createRouter(repo *MongoRepository) chi.Router {
 	return r
 }
 
+func startupCheck() {
+	cmd := exec.Command("typst", "--version")
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		log.Fatalf("Could not connect stdout pipe for 'typst': %s", err)
+	}
+
+	if err = cmd.Start(); err != nil {
+		errstr := "Could not start the command 'typst'. It may not be available on your $PATH. " +
+			"Typst can be downloaded via https://github.com/typst/typst/releases."
+		log.Fatal(strings.TrimSpace(errstr))
+	}
+
+	b, err := io.ReadAll(stdout)
+	if err != nil {
+		log.Fatalf("Could not read from stdout for the 'typst' binary")
+	}
+
+	what := strings.Split(string(b), " ")
+	if len(what) >= 2 {
+		log.Printf("Found 'typst' version %s", what[1])
+	}
+
+}
+
 func main() {
 	log.Printf("This is Vita, the CV generator backend (commit %s)", CommitHash)
+
+	startupCheck()
 
 	uri := "mongodb://localhost:27017"
 	opts := options.Client().ApplyURI(uri)

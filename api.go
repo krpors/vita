@@ -359,6 +359,12 @@ func writeCvAsPDF(w http.ResponseWriter, r *http.Request, cv *CurriculumVitae) {
 
 // Get user CV data, using the JWT provided. This call should be protected by JWT
 // middleware.
+//
+// TODO: this function is not ideal because I don't think this will be used
+// much. The ideal workflow is actually use the GET/POST to view and update
+// the data only, and use the preview or generate instead?
+// Or we can keep it as it is, but we have to supply a parameter for the template
+// to use.
 func (api *VitaJsonAPIResource) ApiGetUserCvData(w http.ResponseWriter, r *http.Request) {
 	claims := r.Context().Value(ContextKeyClaims).(*CustomClaims)
 	cv, found, err := api.Repo.GetCurrentCV(r.Context(), claims.Subject)

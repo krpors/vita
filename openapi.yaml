@@ -19,14 +19,6 @@ tags:
       CV generation related endpoints. These are mainly used for updating and generating a 'definitive'
       version of a particular CV. The previous versions can be retrieved using the 'revisions'. Only one
       'definitive' CV exists at a given time for a user, which is the most recent updated one.
-  - name: preview
-    description: |-
-        Generate a PDF document preview without persisting any data. This API call requires POST data in
-        the form of JSON according to the schema, runs the document generator and returns a stream of PDF bytes
-        if everything went well.
-
-        Even though this is a HTTP POST endpoint, it is an idempotent call. Nothing is persisted or changed in
-        the system.
   - name: revisions
     description: |-
       CV revisions. Once a new CV is posted to the `/api/v1/cv` endpoint, the current is moved to the
@@ -102,15 +94,19 @@ paths:
   /api/v1/cv/preview:
     post:
       tags:
-        - preview
+        - cv
       summary: Generate a PDf document preview without persisting anything.
       requestBody:
-        description: Post CV JSON
+        description: |-
+          Preview data. The configuration node can be used to specify the wanted
+          template to generate the CV. The template has to exist in the system though.
+
+          The CV node is the regular CV data structure.
         content:
           application/json:
             schema:
               allOf:
-                - $ref: '#/components/schemas/CurriculumVitae'
+                - $ref: '#/components/schemas/Preview'
       responses:
         200:
           description: OK

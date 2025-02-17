@@ -123,12 +123,12 @@ type Interest struct {
 // PreviewRequest is used to generate a document for particular CV content,
 // without persisting it to a database.
 type PreviewRequest struct {
-	Configuration PreviewConfiguration `json:"configuration"`
-	Cv            CurriculumVitae      `json:"cv"`
+	Configuration PreviewConfiguration `json:"configuration" validate:"required"`
+	Cv            CurriculumVitae      `json:"cv" validate:"required"`
 }
 
 type PreviewConfiguration struct {
-	Template string `json:"template"`
+	Template string `json:"template" validate:"required"`
 }
 
 func (req *PreviewRequest) Bind(r *http.Request) error {
@@ -136,8 +136,8 @@ func (req *PreviewRequest) Bind(r *http.Request) error {
 }
 
 type CreateUserRequest struct {
-	Username string `bson:"username" json:"username"`
-	Password string `bson:"password" json:"password"`
+	Username string `bson:"username" json:"username" validate:"required"`
+	Password string `bson:"password" json:"password" validate:"required"`
 }
 
 func (req *CreateUserRequest) Bind(r *http.Request) error {

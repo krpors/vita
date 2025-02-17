@@ -15,6 +15,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/render"
+	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -30,6 +31,7 @@ const (
 	ApiErrorCodeInvalid              ErrorCode = "BadRequest"
 	ApiErrorCodeForbidden            ErrorCode = "Forbidden"
 	ApiErrorCodeMethodNotAllowed     ErrorCode = "MethodNotAllowed"
+	ApiErrorCodeValidationFailed     ErrorCode = "ValidationFailed"
 	ApiErrorCodeNotFound             ErrorCode = "URINotFound"
 	ApiErrorCodeResourceNotFound     ErrorCode = "ResourceNotFound"
 	ApiErrorCodeInternalError        ErrorCode = "InternalServerError"
@@ -40,6 +42,7 @@ var apiErrorCodeMap = map[ErrorCode]int{
 	ApiErrorCodeInvalid:              http.StatusBadRequest,
 	ApiErrorCodeForbidden:            http.StatusForbidden,
 	ApiErrorCodeMethodNotAllowed:     http.StatusMethodNotAllowed,
+	ApiErrorCodeValidationFailed:     http.StatusBadRequest,
 	ApiErrorCodeNotFound:             http.StatusNotFound,
 	ApiErrorCodeResourceNotFound:     http.StatusNotFound,
 	ApiErrorCodeInternalError:        http.StatusInternalServerError,
@@ -80,8 +83,8 @@ func NewApiErrorResponse(code ErrorCode, message string, params ...any) ApiError
 }
 
 type LoginRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
+	Username string `json:"username" validate:"required"`
+	Password string `json:"password" validate:"required`
 }
 
 func (req *LoginRequest) Bind(r *http.Request) error {
@@ -93,7 +96,16 @@ type LoginResponse struct {
 }
 
 type VitaJsonAPIResource struct {
-	Repo *MongoRepository
+	Repo      *MongoRepository
+	validator *validator.Validate
+}
+
+func NewVitaJsonAPIResource(repo *MongoRepository) *VitaJsonAPIResource {
+	validator := validator.New()
+	return &VitaJsonAPIResource{
+		Repo:      repo,
+		validator: validator,
+	}
 }
 
 func (api *VitaJsonAPIResource) Routes() chi.Router {
@@ -249,6 +261,12 @@ func (api *VitaJsonAPIResource) ApiLogin(w http.ResponseWriter, r *http.Request)
 	if err := render.Bind(r, loginRequest); err != nil {
 		log.Printf("Error occurred while trying to bind: %s", err)
 		apiError := NewApiErrorResponse(ApiErrorCodeInternalError, "Could not bind login properties!")
+		render.Render(w, r, &apiError)
+		return
+	}
+
+	if err := api.validator.Struct(loginRequest); err != nil {
+		apiError := NewApiErrorResponse(ApiErrorCodeValidationFailed, "Given JSON was invalid: %s", err)
 		render.Render(w, r, &apiError)
 		return
 	}

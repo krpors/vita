@@ -119,9 +119,7 @@ func TestMain(t *testing.M) {
 	defer testMongoClient.Disconnect(context.TODO())
 	testRepo = NewMongoRepository(testMongoClient)
 	testRouter = createRouter(&testRepo)
-	testApiResource = &VitaJsonAPIResource{
-		Repo: &testRepo,
-	}
+	testApiResource = NewVitaJsonAPIResource(&testRepo)
 	code := t.Run()
 	os.Exit(code)
 }
@@ -156,6 +154,24 @@ func TestLoginFailure(t *testing.T) {
 	if result.StatusCode != http.StatusForbidden {
 		t.Errorf("Expected status %d, but was %d", http.StatusForbidden, result.StatusCode)
 	}
+}
+
+func TestLoginEmptyUsernamePassword(t *testing.T) {
+	reader := strings.NewReader(`{ "username": "", "password": ""}`)
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/login", reader)
+	req.Header.Add("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	testApiResource.ApiLogin(w, req)
+	result := w.Result()
+	defer result.Body.Close()
+
+	assert.Equal(t, result.StatusCode, http.StatusBadRequest)
+	// t.Log(w.Body.String())
+	var errResponse ApiErrorResponse
+	mustUnmarshal(t, w.Body.String(), &errResponse)
+	assert.Equal(t, ApiErrorCodeValidationFailed, errResponse.Error.Code)
+	t.Log(errResponse.Error.Message)
 }
 
 func TestLoginOk(t *testing.T) {

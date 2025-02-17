@@ -48,9 +48,7 @@ func createRouter(repo *MongoRepository) chi.Router {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.AllowContentType("application/json"))
 
-	apiResource := VitaJsonAPIResource{
-		Repo: repo,
-	}
+	apiResource := NewVitaJsonAPIResource(repo)
 
 	r.Mount("/api/v1", apiResource.Routes())
 

@@ -84,7 +84,7 @@ func NewApiErrorResponse(code ErrorCode, message string, params ...any) ApiError
 
 type LoginRequest struct {
 	Username string `json:"username" validate:"required"`
-	Password string `json:"password" validate:"required`
+	Password string `json:"password" validate:"required"`
 }
 
 func (req *LoginRequest) Bind(r *http.Request) error {

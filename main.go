@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
+	"github.com/spf13/viper"
 
 	"go.mongodb.org/mongo-driver/v2/mongo"
 	"go.mongodb.org/mongo-driver/v2/mongo/options"
@@ -86,9 +87,28 @@ func startupCheck() {
 
 }
 
+func loadConfig() {
+	viper.SetConfigName("vita")
+	viper.SetConfigType("toml")
+	viper.AddConfigPath("~/.config/vita")
+	viper.AddConfigPath("./")
+	viper.AutomaticEnv()
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	err := viper.ReadInConfig()
+	if err != nil {
+		log.Fatalf("Eh?  %s", err)
+	}
+
+	m := viper.AllKeys()
+	for _, v := range m {
+		log.Printf("%s = %s", v, viper.GetString(v))
+	}
+}
+
 func main() {
 	log.Printf("This is Vita, the CV generator backend (commit %s)", CommitHash)
 
+	loadConfig()
 	startupCheck()
 
 	uri := "mongodb://localhost:27017"

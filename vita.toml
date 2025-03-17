@@ -1,4 +1,3 @@
-[vita]
 template_directory = "./testdata"
 
 [mongo]

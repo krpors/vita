@@ -21,6 +21,10 @@ import (
 // The commit hash. Must be populated by `go build -ldflags="-X main.CommitHash=...`
 var CommitHash string = "UNKNOWN"
 
+type VitaConfig struct {
+	TemplateDirectory string `mapstructure:"template_directory"`
+}
+
 func printRoutes(r chi.Routes) {
 	log.Printf("The following routes are recognized:")
 	chi.Walk(r, func(method, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
@@ -103,12 +107,23 @@ func loadConfig() {
 	for _, v := range m {
 		log.Printf("%s = %s", v, viper.GetString(v))
 	}
+
+	cfg := VitaConfig{}
+	err = viper.Unmarshal(&cfg)
+	if err != nil {
+		log.Fatalf("%s", err)
+	}
+
+	log.Printf("From vita config: %s", cfg.TemplateDirectory)
 }
 
 func main() {
 	log.Printf("This is Vita, the CV generator backend (commit %s)", CommitHash)
 
 	loadConfig()
+
+	log.Printf("ballz %s", viper.GetString("mongo.connectionString"))
+
 	startupCheck()
 
 	uri := "mongodb://localhost:27017"

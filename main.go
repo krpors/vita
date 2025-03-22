@@ -23,6 +23,7 @@ var CommitHash string = "UNKNOWN"
 
 type VitaConfig struct {
 	TemplateDirectory string `mapstructure:"template_directory"`
+	MongoUri          string `mapstructure:"mongo_uri"`
 }
 
 func printRoutes(r chi.Routes) {
@@ -43,7 +44,7 @@ func printRoutes(r chi.Routes) {
 	})
 }
 
-func createRouter(repo *MongoRepository) chi.Router {
+func createRouter(cfg *VitaConfig, repo *MongoRepository) chi.Router {
 	r := chi.NewRouter()
 
 	r.Use(cors.AllowAll().Handler)
@@ -53,13 +54,9 @@ func createRouter(repo *MongoRepository) chi.Router {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.AllowContentType("application/json"))
 
-	apiResource := NewVitaJsonAPIResource(repo)
+	apiResource := NewVitaJsonAPIResource(cfg, repo)
 
 	r.Mount("/api/v1", apiResource.Routes())
-
-	r.Get("/home", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("hello"))
-	})
 
 	printRoutes(r)
 
@@ -91,7 +88,7 @@ func startupCheck() {
 
 }
 
-func loadConfig() {
+func loadConfig() VitaConfig {
 	viper.SetConfigName("vita")
 	viper.SetConfigType("toml")
 	viper.AddConfigPath("~/.config/vita")
@@ -100,30 +97,27 @@ func loadConfig() {
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	err := viper.ReadInConfig()
 	if err != nil {
-		log.Fatalf("Eh?  %s", err)
+		log.Fatalf("Could not vita config: %s", err)
 	}
 
 	m := viper.AllKeys()
 	for _, v := range m {
-		log.Printf("%s = %s", v, viper.GetString(v))
+		log.Printf("Found configuration item '%s' = '%s'", v, viper.GetString(v))
 	}
 
 	cfg := VitaConfig{}
 	err = viper.Unmarshal(&cfg)
 	if err != nil {
-		log.Fatalf("%s", err)
+		log.Fatalf("Could not read vita config: %s", err)
 	}
 
-	log.Printf("From vita config: %s", cfg.TemplateDirectory)
+	return cfg
 }
 
 func main() {
 	log.Printf("This is Vita, the CV generator backend (commit %s)", CommitHash)
 
-	loadConfig()
-
-	log.Printf("ballz %s", viper.GetString("mongo.connectionString"))
-
+	config := loadConfig()
 	startupCheck()
 
 	uri := "mongodb://localhost:27017"
@@ -134,7 +128,7 @@ func main() {
 	}
 
 	if err := client.Ping(context.TODO(), nil); err != nil {
-		log.Printf("WARNING: ")
+		log.Printf("WARNING: initial Mongo ping check failed")
 	}
 	log.Printf("Connected to '%s'", uri)
 
@@ -145,7 +139,7 @@ func main() {
 	}()
 
 	repo := NewMongoRepository(client)
-	r := createRouter(&repo)
+	r := createRouter(&config, &repo)
 
 	log.Printf("Starting webserver on :8080")
 	http.ListenAndServe(":8080", r)

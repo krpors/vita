@@ -25,6 +25,7 @@ var (
 	testRepo        MongoRepository
 	testApiResource *VitaJsonAPIResource
 	testRouter      chi.Router
+	testCfg         VitaConfig
 )
 
 func mustUnmarshal(t *testing.T, response string, v any) {
@@ -118,8 +119,12 @@ func TestMain(t *testing.M) {
 	testMongoClient = createTestingMongoClient()
 	defer testMongoClient.Disconnect(context.TODO())
 	testRepo = NewMongoRepository(testMongoClient)
-	testRouter = createRouter(&testRepo)
-	testApiResource = NewVitaJsonAPIResource(&testRepo)
+	testCfg = VitaConfig{
+		TemplateDirectory: "./testdata/",
+		MongoUri:          "mongodb://localhost:27017",
+	}
+	testRouter = createRouter(&testCfg, &testRepo)
+	testApiResource = NewVitaJsonAPIResource(&testCfg, &testRepo)
 	code := t.Run()
 	os.Exit(code)
 }

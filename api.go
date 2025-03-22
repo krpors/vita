@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"os"
 	"os/exec"
 	"slices"
 	"strconv"
@@ -98,13 +99,15 @@ type LoginResponse struct {
 type VitaJsonAPIResource struct {
 	Repo      *MongoRepository
 	validator *validator.Validate
+	config    *VitaConfig
 }
 
-func NewVitaJsonAPIResource(repo *MongoRepository) *VitaJsonAPIResource {
+func NewVitaJsonAPIResource(cfg *VitaConfig, repo *MongoRepository) *VitaJsonAPIResource {
 	validator := validator.New()
 	return &VitaJsonAPIResource{
 		Repo:      repo,
 		validator: validator,
+		config:    cfg,
 	}
 }
 
@@ -131,6 +134,7 @@ func (api *VitaJsonAPIResource) Routes() chi.Router {
 		r.Post("/cv/preview", api.ApiPostPreview)
 		r.Delete("/cv/revisions", api.ApiDeleteAllRevisions)
 		r.Delete("/cv/revisions/{version}", api.ApiDeleteSingleRevision)
+		r.Get("/templates", api.ApiGetAllTemplates)
 	})
 
 	return r
@@ -315,12 +319,13 @@ func runCommand(cv *CurriculumVitae) ([]byte, error) {
 	bytes, _ := json.Marshal(cv)
 
 	cmd := exec.Command(
-		"typst",                       // the command
-		"compile",                     // compile only
-		"testdata/example.typ",        // template to use
-		"--input",                     // specify input data
-		fmt.Sprintf("data=%s", bytes), // 'data' is the key, serialized JSON is value
-		"-")                           // output the stdout
+		"typst",   // the command
+		"compile", // compile only
+		// TODO: use input from call + config
+		"testdata/template1/example.typ", // template to use
+		"--input",                        // specify input data
+		fmt.Sprintf("data=%s", bytes),    // 'data' is the key, serialized JSON is value
+		"-")                              // output the stdout
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -512,4 +517,19 @@ func (api *VitaJsonAPIResource) ApiDeleteSingleRevision(w http.ResponseWriter, r
 		render.Render(w, r, &apiError)
 		return
 	}
+}
+
+func (api *VitaJsonAPIResource) ApiGetAllTemplates(w http.ResponseWriter, r *http.Request) {
+	derp, err := os.ReadDir(api.config.TemplateDirectory)
+	if err != nil {
+		apiError := NewApiErrorResponse(ApiErrorCodeInternalError, "Derp!!! %s", err)
+		render.Render(w, r, &apiError)
+		return
+	}
+	for _, x := range derp {
+		log.Printf("%s, %v", x.Name(), x.IsDir())
+	}
+	// 1. use config struct
+	// 2. check subdirs under template dir
+	// 3. read file
 }

@@ -318,3 +318,33 @@ func TestPreview(t *testing.T) {
 	assert.Equal(t, expected, pdfHeader)
 	assert.Equal(t, 200, w.Result().StatusCode)
 }
+
+func TestGetTemplates(t *testing.T) {
+	cfg := VitaConfig{
+		TemplateDirectory: "./testdata",
+	}
+
+	err, resp := getTemplates(&cfg)
+	assert.Nil(t, err)
+	assert.Equal(t, 1, len(resp.Templates))
+	assert.Equal(t, "template1", resp.Templates[0].Name)
+
+	defer setupTestUser(t)()
+
+	// 1: login
+	loginResponse := login(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/templates", nil)
+	req.Header.Add("Authorization", "Bearer "+loginResponse.Jwt)
+	req.Header.Add("Content-Type", "application/json")
+
+	w := httptest.NewRecorder()
+
+	testRouter.ServeHTTP(w, req)
+
+	assert.Equal(t, 200, w.Result().StatusCode)
+
+	var tlr TemplateListingResponse
+	mustUnmarshal(t, w.Body.String(), &tlr)
+	t.Logf("%v", tlr)
+}

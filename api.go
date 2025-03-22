@@ -96,6 +96,19 @@ type LoginResponse struct {
 	Jwt string `json:"jwt"`
 }
 
+type TemplateListingResponse struct {
+	Templates []TemplateThing
+}
+
+type TemplateThing struct {
+	Name        string
+	Description string
+}
+
+func (t *TemplateListingResponse) Render(w http.ResponseWriter, r *http.Request) error {
+	return nil
+}
+
 type VitaJsonAPIResource struct {
 	Repo      *MongoRepository
 	validator *validator.Validate
@@ -519,17 +532,40 @@ func (api *VitaJsonAPIResource) ApiDeleteSingleRevision(w http.ResponseWriter, r
 	}
 }
 
+func getTemplates(cfg *VitaConfig) (error, TemplateListingResponse) {
+	tlr := TemplateListingResponse{}
+	derp, err := os.ReadDir(cfg.TemplateDirectory)
+	if err != nil {
+		return err, tlr
+	}
+
+	for _, x := range derp {
+		if x.IsDir() {
+			tlr.Templates = append(tlr.Templates, TemplateThing{
+				Name:        x.Name(),
+				Description: "Example template TODO",
+			})
+			log.Printf("Parsing template '%s'", x.Name())
+		}
+	}
+
+	return nil, tlr
+}
+
 func (api *VitaJsonAPIResource) ApiGetAllTemplates(w http.ResponseWriter, r *http.Request) {
-	derp, err := os.ReadDir(api.config.TemplateDirectory)
+	err, resp := getTemplates(api.config)
 	if err != nil {
 		apiError := NewApiErrorResponse(ApiErrorCodeInternalError, "Derp!!! %s", err)
 		render.Render(w, r, &apiError)
 		return
 	}
-	for _, x := range derp {
-		log.Printf("%s, %v", x.Name(), x.IsDir())
-	}
 	// 1. use config struct
 	// 2. check subdirs under template dir
 	// 3. read file
+
+	log.Printf("%v", resp)
+	render.Render(w, r, &resp)
+
+	// val, _ := json.Marshal(resp)
+	// w.Write(val)
 }

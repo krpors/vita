@@ -153,3 +153,17 @@ type User struct {
 		LastName  string `bson:"last_name" json:"last_name"`
 	} `json:"profile"`
 }
+
+type TemplateListingResponse struct {
+	Templates []TemplateConfiguration `json:"templates"`
+}
+
+func (t *TemplateListingResponse) Render(w http.ResponseWriter, r *http.Request) error {
+	return nil
+}
+
+type TemplateConfiguration struct {
+	Name        string `toml:"name"`
+	Author      string `toml:"author"`
+	Description string `toml:"description"`
+}

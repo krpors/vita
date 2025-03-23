@@ -320,15 +320,6 @@ func TestPreview(t *testing.T) {
 }
 
 func TestGetTemplates(t *testing.T) {
-	cfg := VitaConfig{
-		TemplateDirectory: "./testdata",
-	}
-
-	err, resp := getTemplates(&cfg)
-	assert.Nil(t, err)
-	assert.Equal(t, 1, len(resp.Templates))
-	assert.Equal(t, "template1", resp.Templates[0].Name)
-
 	defer setupTestUser(t)()
 
 	// 1: login
@@ -346,5 +337,9 @@ func TestGetTemplates(t *testing.T) {
 
 	var tlr TemplateListingResponse
 	mustUnmarshal(t, w.Body.String(), &tlr)
-	t.Logf("%v", tlr)
+	t.Logf("%v", w.Body.String())
+
+	assert.Equal(t, 1, len(tlr.Templates))
+	assert.Equal(t, "Example template 1", tlr.Templates[0].Name)
+	assert.Equal(t, "This is an example template for use in testing.", tlr.Templates[0].Description)
 }

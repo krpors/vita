@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -18,6 +19,7 @@ import (
 	"github.com/go-chi/render"
 	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/pelletier/go-toml/v2"
 )
 
 type ContextKey string
@@ -94,19 +96,6 @@ func (req *LoginRequest) Bind(r *http.Request) error {
 
 type LoginResponse struct {
 	Jwt string `json:"jwt"`
-}
-
-type TemplateListingResponse struct {
-	Templates []TemplateThing
-}
-
-type TemplateThing struct {
-	Name        string
-	Description string
-}
-
-func (t *TemplateListingResponse) Render(w http.ResponseWriter, r *http.Request) error {
-	return nil
 }
 
 type VitaJsonAPIResource struct {
@@ -534,21 +523,47 @@ func (api *VitaJsonAPIResource) ApiDeleteSingleRevision(w http.ResponseWriter, r
 
 func getTemplates(cfg *VitaConfig) (error, TemplateListingResponse) {
 	tlr := TemplateListingResponse{}
-	derp, err := os.ReadDir(cfg.TemplateDirectory)
+	templateDirectoryFiles, err := os.ReadDir(cfg.TemplateDirectory)
 	if err != nil {
 		return err, tlr
 	}
 
-	for _, x := range derp {
-		if x.IsDir() {
-			tlr.Templates = append(tlr.Templates, TemplateThing{
-				Name:        x.Name(),
-				Description: "Example template TODO",
-			})
-			log.Printf("Parsing template '%s'", x.Name())
+	// Oh man I love Go's simplicity, but this err handling is bonkers sometimes,
+	// I swear. It's easy to reason about though, I'll give you that. Anyway,
+	// I could have used fs.WalkDir, but I only need to recurse max 2 directories
+	// deep.
+	for _, subFile := range templateDirectoryFiles {
+		if subFile.IsDir() {
+			templateDir := filepath.Join(cfg.TemplateDirectory, subFile.Name())
+			subdir, err := os.ReadDir(templateDir)
+			if err != nil {
+				log.Printf("Unable to read subdir '%s' : %s", templateDir, err)
+				continue
+			}
+
+			for _, file := range subdir {
+				if file.Type().IsRegular() && file.Name() == "template.toml" {
+					templateConfigFile := filepath.Join(cfg.TemplateDirectory, subFile.Name(), "template.toml")
+
+					abs, _ := filepath.Abs(templateConfigFile)
+					log.Printf("Parsing template from subdir '%s'", abs)
+					contents, err := os.ReadFile(templateConfigFile)
+					if err != nil {
+						log.Printf("Could not read template.toml file from '%s': %s", templateConfigFile, err)
+						continue
+					}
+					var tmplConfig TemplateConfiguration
+					err = toml.Unmarshal(contents, &tmplConfig)
+					if err != nil {
+						log.Printf("Could not unmarshal template.toml file from '%s': %s", templateConfigFile, err)
+						continue
+					}
+
+					tlr.Templates = append(tlr.Templates, tmplConfig)
+				}
+			}
 		}
 	}
-
 	return nil, tlr
 }
 

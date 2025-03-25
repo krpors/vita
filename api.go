@@ -575,6 +575,7 @@ func getTemplates(cfg *VitaConfig) (map[string]TemplateConfiguration, error) {
 						continue
 					}
 					var tmplConfig TemplateConfiguration
+					tmplConfig.Id = subFile.Name()
 					err = toml.Unmarshal(contents, &tmplConfig)
 					if err != nil {
 						log.Printf("Could not unmarshal template.toml file from '%s': %s", templateConfigFile, err)
@@ -590,8 +591,13 @@ func getTemplates(cfg *VitaConfig) (map[string]TemplateConfiguration, error) {
 }
 
 func (api *VitaJsonAPIResource) ApiGetAllTemplates(w http.ResponseWriter, r *http.Request) {
+	var list []TemplateConfiguration
+	for _, v := range api.templates {
+		list = append(list, v)
+	}
+
 	response := TemplateListingResponse{
-		Templates: api.templates,
+		Templates: list,
 	}
 	render.Render(w, r, &response)
 }

@@ -123,8 +123,8 @@ func TestMain(t *testing.M) {
 		TemplateDirectory: "./testdata/",
 		MongoUri:          "mongodb://localhost:27017",
 	}
-	testRouter = createRouter(&testCfg, &testRepo)
-	testApiResource = NewVitaJsonAPIResource(&testCfg, &testRepo)
+	testRouter = createRouter(testCfg, &testRepo)
+	testApiResource = NewVitaJsonAPIResource(testCfg, &testRepo)
 	code := t.Run()
 	os.Exit(code)
 }
@@ -339,7 +339,7 @@ func TestGetTemplates(t *testing.T) {
 	mustUnmarshal(t, w.Body.String(), &tlr)
 	t.Logf("%v", w.Body.String())
 
-	assert.Equal(t, 1, len(tlr.Templates))
+	assert.Equal(t, 2, len(tlr.Templates))
 	assert.Equal(t, "Example template 1", tlr.Templates[0].Name)
 	assert.Equal(t, "This is an example template for use in testing.", tlr.Templates[0].Description)
 }

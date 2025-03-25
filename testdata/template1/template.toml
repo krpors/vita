@@ -1,3 +1,4 @@
 name = "Example template 1"
 author = "Kevin Pors"
 description = "This is an example template for use in testing."
+template_file = "example.typ"

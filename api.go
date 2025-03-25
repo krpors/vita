@@ -101,15 +101,27 @@ type LoginResponse struct {
 type VitaJsonAPIResource struct {
 	Repo      *MongoRepository
 	validator *validator.Validate
-	config    *VitaConfig
+
+	// The Vita backend configurations.
+	config VitaConfig
+
+	// The templates, which are 'cached' to prevent continuous file reading.
+	templates []TemplateConfiguration
 }
 
-func NewVitaJsonAPIResource(cfg *VitaConfig, repo *MongoRepository) *VitaJsonAPIResource {
+func NewVitaJsonAPIResource(cfg VitaConfig, repo *MongoRepository) *VitaJsonAPIResource {
 	validator := validator.New()
+
+	templates, err := getTemplates(&cfg)
+	if err != nil {
+		log.Fatalf("Cannot read templates: %s", err)
+	}
+
 	return &VitaJsonAPIResource{
 		Repo:      repo,
 		validator: validator,
 		config:    cfg,
+		templates: templates.Templates,
 	}
 }
 
@@ -314,11 +326,11 @@ func (api *VitaJsonAPIResource) ApiLogin(w http.ResponseWriter, r *http.Request)
 // the result of the stdout is returned as bytes (which will contain PDF content).
 // In case anything fails while running the command or connecting the stdout or
 // stderr pipes, error is non-nil and the byte slice will remain nil.
-func runCommand(cv *CurriculumVitae) ([]byte, error) {
+func (api *VitaJsonAPIResource) runCommand(req *PreviewRequest) ([]byte, error) {
 	startOfGeneration := time.Now()
 	log.Printf("Executing PDF generation for CV...")
 
-	bytes, _ := json.Marshal(cv)
+	bytes, _ := json.Marshal(req.Cv)
 
 	cmd := exec.Command(
 		"typst",   // the command
@@ -369,8 +381,8 @@ func runCommand(cv *CurriculumVitae) ([]byte, error) {
 	return stdoutBytes, nil
 }
 
-func writeCvAsPDF(w http.ResponseWriter, r *http.Request, cv *CurriculumVitae) {
-	result, err := runCommand(cv)
+func (api *VitaJsonAPIResource) writeCvAsPDF(w http.ResponseWriter, r *http.Request, req *PreviewRequest) {
+	result, err := api.runCommand(req)
 	if err != nil {
 		log.Printf("Unable to generate CV as PDF: %s", err)
 		apiError := NewApiErrorResponse(ApiErrorCodePDFGenerationFailure, "The PDF generation failed. Check the server logs!")
@@ -409,7 +421,10 @@ func (api *VitaJsonAPIResource) ApiGetUserCvData(w http.ResponseWriter, r *http.
 	}
 
 	if accept == "application/pdf" {
-		writeCvAsPDF(w, r, &cv.Cv)
+		previereq := &PreviewRequest{
+			Cv: cv.Cv,
+		}
+		api.writeCvAsPDF(w, r, previereq)
 		return
 	} else {
 		b, _ := json.Marshal(cv)
@@ -473,7 +488,7 @@ func (api *VitaJsonAPIResource) ApiPostPreview(w http.ResponseWriter, r *http.Re
 
 	log.Printf("Template specified: %s", previewReq.Configuration.Template)
 
-	writeCvAsPDF(w, r, &previewReq.Cv)
+	api.writeCvAsPDF(w, r, &previewReq)
 }
 
 func (api *VitaJsonAPIResource) ApiDeleteAllRevisions(w http.ResponseWriter, r *http.Request) {
@@ -521,11 +536,11 @@ func (api *VitaJsonAPIResource) ApiDeleteSingleRevision(w http.ResponseWriter, r
 	}
 }
 
-func getTemplates(cfg *VitaConfig) (error, TemplateListingResponse) {
+func getTemplates(cfg *VitaConfig) (TemplateListingResponse, error) {
 	tlr := TemplateListingResponse{}
 	templateDirectoryFiles, err := os.ReadDir(cfg.TemplateDirectory)
 	if err != nil {
-		return err, tlr
+		return tlr, err
 	}
 
 	// Oh man I love Go's simplicity, but this err handling is bonkers sometimes,
@@ -564,23 +579,12 @@ func getTemplates(cfg *VitaConfig) (error, TemplateListingResponse) {
 			}
 		}
 	}
-	return nil, tlr
+	return tlr, nil
 }
 
 func (api *VitaJsonAPIResource) ApiGetAllTemplates(w http.ResponseWriter, r *http.Request) {
-	err, resp := getTemplates(api.config)
-	if err != nil {
-		apiError := NewApiErrorResponse(ApiErrorCodeInternalError, "Derp!!! %s", err)
-		render.Render(w, r, &apiError)
-		return
+	response := TemplateListingResponse{
+		Templates: api.templates,
 	}
-	// 1. use config struct
-	// 2. check subdirs under template dir
-	// 3. read file
-
-	log.Printf("%v", resp)
-	render.Render(w, r, &resp)
-
-	// val, _ := json.Marshal(resp)
-	// w.Write(val)
+	render.Render(w, r, &response)
 }

@@ -44,7 +44,7 @@ func printRoutes(r chi.Routes) {
 	})
 }
 
-func createRouter(cfg *VitaConfig, repo *MongoRepository) chi.Router {
+func createRouter(cfg VitaConfig, repo *MongoRepository) chi.Router {
 	r := chi.NewRouter()
 
 	r.Use(cors.AllowAll().Handler)
@@ -139,7 +139,7 @@ func main() {
 	}()
 
 	repo := NewMongoRepository(client)
-	r := createRouter(&config, &repo)
+	r := createRouter(config, &repo)
 
 	log.Printf("Starting webserver on :8080")
 	http.ListenAndServe(":8080", r)

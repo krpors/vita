@@ -163,7 +163,8 @@ func (t *TemplateListingResponse) Render(w http.ResponseWriter, r *http.Request)
 }
 
 type TemplateConfiguration struct {
-	Name        string `toml:"name"`
-	Author      string `toml:"author"`
-	Description string `toml:"description"`
+	Name         string `toml:"name"`
+	Author       string `toml:"author"`
+	Description  string `toml:"description"`
+	TemplateFile string `toml:"template_file"`
 }

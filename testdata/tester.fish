@@ -6,7 +6,7 @@ function login
         -X POST \
         -H "Content-Type: application/json" \
         --data '{"username": "kpors", "password": "test"}' \
-        'http://localhost:8080/v1/login')
+        'http://localhost:8080/api/v1/login')
 
     echo $result | jq
     set -Ux VITA_JWT (echo $result | jq -r .jwt)
@@ -18,7 +18,7 @@ function login_wrong_credentials
         -X POST \
         -H "Content-Type: application/json" \
         --data '{"username": "foo", "password": "quux"}' \
-        'http://localhost:8080/v1/login')
+        'http://localhost:8080/api/v1/login')
 
     echo $result | jq
 end
@@ -31,7 +31,7 @@ function post_new_cv
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $VITA_JWT" \
         --data @./entry.json \
-        'http://localhost:8080/v1/cv')
+        'http://localhost:8080/api/v1/cv')
 
     echo $result
 end
@@ -43,7 +43,7 @@ function post_new_incorrect_cv
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $VITA_JWT" \
         --data '{}' \
-        'http://localhost:8080/v1/cv')
+        'http://localhost:8080/api/v1/cv')
 
     echo $result | jq
 end
@@ -56,7 +56,7 @@ function put_dev_version
         -H "Content-Type: application/json" \
         -H "Authorization: Bearer $VITA_JWT" \
         --data @./entry.json \
-        'http://localhost:8080/v1/cv/development')
+        'http://localhost:8080/api/v1/cv/development')
 
     echo $result | jq
 end
@@ -70,7 +70,7 @@ function get_current_cv_json
         -s \
         -H "Accept: application/json" \
         -H "Authorization: Bearer $VITA_JWT" \
-        'http://localhost:8080/v1/cv')
+        'http://localhost:8080/api/v1/cv')
 
     echo $result | jq
 end
@@ -81,7 +81,7 @@ function get_current_cv_pdf
         -v \
         -H "Accept: application/pdf" \
         -H "Authorization: Bearer $VITA_JWT" \
-        'http://localhost:8080/v1/cv' \
+        'http://localhost:8080/api/v1/cv' \
         --output current_cv.pdf
 end
 
@@ -90,7 +90,7 @@ function get_revisions
         -v \
         -H "Accept: application/json" \
         -H "Authorization: Bearer $VITA_JWT" \
-        'http://localhost:8080/v1/cv/revisions')
+        'http://localhost:8080/api/v1/cv/revisions')
 
     echo $result
 end
@@ -105,7 +105,7 @@ function post_preview
         -H "Accept: application/pdf" \
         -H "Authorization: Bearer $VITA_JWT" \
         --data {$preview} \
-        'http://localhost:8080/v1/cv/preview' \
+        'http://localhost:8080/api/v1/cv/preview' \
         --output preview.pdf
 end
 
@@ -115,7 +115,7 @@ function delete_revisions
         -X DELETE \
         -H "Accept: application/json" \
         -H "Authorization: Bearer $VITA_JWT" \
-        'http://localhost:8080/v1/cv/revisions')
+        'http://localhost:8080/api/v1/cv/revisions')
 
     echo $result
 end
@@ -125,7 +125,7 @@ function get_development_cv_json
         -v \
         -H "Accept: application/json" \
         -H "Authorization: Bearer $VITA_JWT" \
-        'http://localhost:8080/v1/cv/development')
+        'http://localhost:8080/api/v1/cv/development')
 
     echo $result | jq
 end
@@ -135,7 +135,7 @@ function get_development_cv_pdf
         -v \
         -H "Accept: application/pdf" \
         -H "Authorization: Bearer $VITA_JWT" \
-        'http://localhost:8080/v1/cv/development' \
+        'http://localhost:8080/api/v1/cv/development' \
         --output current_cv_development.pdf
 end
 

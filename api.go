@@ -25,6 +25,7 @@ import (
 type ContextKey string
 
 const (
+	// The context key to assign the JWT claims to.
 	ContextKeyClaims ContextKey = "claims"
 )
 
@@ -106,7 +107,8 @@ type VitaJsonAPIResource struct {
 	config VitaConfig
 
 	// The templates, which are 'cached' to prevent continuous file reading.
-	templates []TemplateConfiguration
+	// The key of the map is in fact the directory name.
+	templates map[string]TemplateConfiguration
 }
 
 func NewVitaJsonAPIResource(cfg VitaConfig, repo *MongoRepository) *VitaJsonAPIResource {
@@ -117,11 +119,15 @@ func NewVitaJsonAPIResource(cfg VitaConfig, repo *MongoRepository) *VitaJsonAPIR
 		log.Fatalf("Cannot read templates: %s", err)
 	}
 
+	if len(templates) == 0 {
+		log.Fatalf("No templates are available! TODO!")
+	}
+
 	return &VitaJsonAPIResource{
 		Repo:      repo,
 		validator: validator,
 		config:    cfg,
-		templates: templates.Templates,
+		templates: templates,
 	}
 }
 
@@ -536,12 +542,13 @@ func (api *VitaJsonAPIResource) ApiDeleteSingleRevision(w http.ResponseWriter, r
 	}
 }
 
-func getTemplates(cfg *VitaConfig) (TemplateListingResponse, error) {
-	tlr := TemplateListingResponse{}
+func getTemplates(cfg *VitaConfig) (map[string]TemplateConfiguration, error) {
 	templateDirectoryFiles, err := os.ReadDir(cfg.TemplateDirectory)
 	if err != nil {
-		return tlr, err
+		return nil, err
 	}
+
+	templateMap := make(map[string]TemplateConfiguration)
 
 	// Oh man I love Go's simplicity, but this err handling is bonkers sometimes,
 	// I swear. It's easy to reason about though, I'll give you that. Anyway,
@@ -574,12 +581,12 @@ func getTemplates(cfg *VitaConfig) (TemplateListingResponse, error) {
 						continue
 					}
 
-					tlr.Templates = append(tlr.Templates, tmplConfig)
+					templateMap[templateDir] = tmplConfig
 				}
 			}
 		}
 	}
-	return tlr, nil
+	return templateMap, nil
 }
 
 func (api *VitaJsonAPIResource) ApiGetAllTemplates(w http.ResponseWriter, r *http.Request) {

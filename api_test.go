@@ -267,6 +267,7 @@ func TestRequiredAuthenticatedEndpoints(t *testing.T) {
 		{method: http.MethodGet, uri: "/api/v1/cv/revisions"},
 		{method: http.MethodDelete, uri: "/api/v1/cv/revisions"},
 		{method: http.MethodPost, uri: "/api/v1/cv/preview"},
+		{method: http.MethodGet, uri: "/api/v1/templates"},
 	}
 
 	for _, u := range uris {

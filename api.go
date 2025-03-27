@@ -7,9 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -19,7 +17,6 @@ import (
 	"github.com/go-chi/render"
 	"github.com/go-playground/validator/v10"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/pelletier/go-toml/v2"
 )
 
 type ContextKey string
@@ -114,7 +111,7 @@ type VitaJsonAPIResource struct {
 func NewVitaJsonAPIResource(cfg VitaConfig, repo *MongoRepository) *VitaJsonAPIResource {
 	validator := validator.New()
 
-	templates, err := getTemplates(&cfg)
+	templates, err := cfg.GetTemplates()
 	if err != nil {
 		log.Fatalf("Cannot read templates: %s", err)
 	}
@@ -540,54 +537,6 @@ func (api *VitaJsonAPIResource) ApiDeleteSingleRevision(w http.ResponseWriter, r
 		render.Render(w, r, &apiError)
 		return
 	}
-}
-
-func getTemplates(cfg *VitaConfig) (map[string]TemplateConfiguration, error) {
-	templateDirectoryFiles, err := os.ReadDir(cfg.TemplateDirectory)
-	if err != nil {
-		return nil, err
-	}
-
-	templateMap := make(map[string]TemplateConfiguration)
-
-	// Oh man I love Go's simplicity, but this err handling is bonkers sometimes,
-	// I swear. It's easy to reason about though, I'll give you that. Anyway,
-	// I could have used fs.WalkDir, but I only need to recurse max 2 directories
-	// deep.
-	for _, subFile := range templateDirectoryFiles {
-		if subFile.IsDir() {
-			templateDir := filepath.Join(cfg.TemplateDirectory, subFile.Name())
-			subdir, err := os.ReadDir(templateDir)
-			if err != nil {
-				log.Printf("Unable to read subdir '%s' : %s", templateDir, err)
-				continue
-			}
-
-			for _, file := range subdir {
-				if file.Type().IsRegular() && file.Name() == "template.toml" {
-					templateConfigFile := filepath.Join(cfg.TemplateDirectory, subFile.Name(), "template.toml")
-
-					abs, _ := filepath.Abs(templateConfigFile)
-					log.Printf("Parsing template from subdir '%s'", abs)
-					contents, err := os.ReadFile(templateConfigFile)
-					if err != nil {
-						log.Printf("Could not read template.toml file from '%s': %s", templateConfigFile, err)
-						continue
-					}
-					var tmplConfig TemplateConfiguration
-					tmplConfig.Id = subFile.Name()
-					err = toml.Unmarshal(contents, &tmplConfig)
-					if err != nil {
-						log.Printf("Could not unmarshal template.toml file from '%s': %s", templateConfigFile, err)
-						continue
-					}
-
-					templateMap[templateDir] = tmplConfig
-				}
-			}
-		}
-	}
-	return templateMap, nil
 }
 
 func (api *VitaJsonAPIResource) ApiGetAllTemplates(w http.ResponseWriter, r *http.Request) {

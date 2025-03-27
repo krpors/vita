@@ -21,11 +21,6 @@ import (
 // The commit hash. Must be populated by `go build -ldflags="-X main.CommitHash=...`
 var CommitHash string = "UNKNOWN"
 
-type VitaConfig struct {
-	TemplateDirectory string `mapstructure:"template_directory"`
-	MongoUri          string `mapstructure:"mongo_uri"`
-}
-
 func printRoutes(r chi.Routes) {
 	log.Printf("The following routes are recognized:")
 	chi.Walk(r, func(method, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {

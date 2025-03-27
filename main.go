@@ -115,8 +115,7 @@ func main() {
 	config := loadConfig()
 	startupCheck()
 
-	uri := "mongodb://localhost:27017"
-	opts := options.Client().ApplyURI(uri)
+	opts := options.Client().ApplyURI(config.MongoUri)
 	client, err := mongo.Connect(opts)
 	if err != nil {
 		panic(err)
@@ -125,7 +124,7 @@ func main() {
 	if err := client.Ping(context.TODO(), nil); err != nil {
 		log.Printf("WARNING: initial Mongo ping check failed")
 	}
-	log.Printf("Connected to '%s'", uri)
+	log.Printf("Connected to '%s'", config.MongoUri)
 
 	defer func() {
 		if err := client.Disconnect(context.TODO()); err != nil {
@@ -136,8 +135,8 @@ func main() {
 	repo := NewMongoRepository(client)
 	r := createRouter(config, &repo)
 
-	log.Printf("Starting webserver on :8080")
-	http.ListenAndServe(":8080", r)
+	log.Printf("Starting webserver on %s", config.BindAddress)
+	http.ListenAndServe(config.BindAddress, r)
 }
 
 // https://pkg.go.dev/go.mongodb.org/mongo-driver/v2#section-readme

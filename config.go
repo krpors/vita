@@ -13,6 +13,7 @@ import (
 type VitaConfig struct {
 	TemplateDirectory string `mapstructure:"template_directory"`
 	MongoUri          string `mapstructure:"mongo_uri"`
+	BindAddress       string `mapstructure:"bind_address"`
 }
 
 // GetTemplates tries to look up all defined templates in the given

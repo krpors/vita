@@ -29,7 +29,24 @@ tags:
       purposes only.
   - name: login
     description: Used to authenticate users to the system.
+  - name: templates
+    description: Endpoints regarding templates installed on the system.
 paths:
+  /api/v1/templates:
+    get:
+      tags:
+        - templates
+      summary: 'Retrieves all templates installed on the system.'
+      description: 'Returns all template configuration in JSON format.'
+      responses:
+        200:
+          description: 'Returns all templates as a JSON array.'
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/TemplatesResponse'
+
   /api/v1/cv:
     post:
       tags:
@@ -433,6 +450,29 @@ components:
             Custom keys, not belonging to the default interface. This can be used
             to supply key/values or structures for specific purposes, which may
             differ per Typst template used.
+
+    TemplatesResponse:
+      description: Template listing.
+      type: object
+      properties:
+        templates:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                example: 'default_cv_template'
+              name:
+                type: string
+                example: 'Default CV Template'
+              author:
+                type: string
+                example: 'John J.D. Doe'
+              description:
+                type: string
+                example: 'The default template for the system. With a nice hue!'
+
 
     ApiError:
       description: Generic error returned by the API.

@@ -39,7 +39,7 @@ paths:
       summary: 'Retrieves all templates installed on the system.'
       description: 'Returns all template configuration in JSON format.'
       responses:
-        200:
+        "200":
           description: 'Returns all templates as a JSON array.'
           content:
             application/json:
@@ -65,16 +65,16 @@ paths:
               allOf:
                 - $ref: '#/components/schemas/CurriculumVitae'
       responses:
-        200:
+        "200":
           description: CV is published ok.
-        400:
+        "400":
           description: Bad request. JSON malformed or incomplete.
           content:
             application/json:
               schema:
                 allOf:
                   - $ref: '#/components/schemas/ApiError'
-        403:
+        "403":
           description: Invalid credentials. The given claims in the JWT may have expired, be invalid or corrupted.
           content:
             application/json:
@@ -87,7 +87,7 @@ paths:
         - cv
       summary: Get the user's current CV data as JSON
       responses:
-        200:
+        "200":
           description: The CV is retried successfully.
           content:
             application/pdf:
@@ -125,7 +125,7 @@ paths:
               allOf:
                 - $ref: '#/components/schemas/Preview'
       responses:
-        200:
+        "200":
           description: OK
           content:
             application/pdf:
@@ -133,7 +133,7 @@ paths:
                 description: PDF in binary format
                 type: string
                 format: binary
-        500:
+        "500":
           description: Error while generating the PDF
           content:
             application/json:
@@ -146,7 +146,7 @@ paths:
         - revisions
       summary: Get revisions of CVs for the current user as a JSON array.
       responses:
-        200:
+        "200":
           description: OK
           content:
             application/json:
@@ -183,7 +183,7 @@ paths:
                   type: string
                   example: barbazquux123
       responses:
-        200:
+        "200":
           description: User is correctly logged in using the supplied credentials.
           content:
             application/json:
@@ -194,7 +194,7 @@ paths:
                     title: The JSON Web Token for authentication against protected endpoints.
                     example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c
 
-        403:
+        "403":
           description: User is not authenticated. The supplied credentials are invalid.
           content:
             application/json:

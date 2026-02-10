@@ -116,6 +116,7 @@ func main() {
 	startupCheck()
 
 	opts := options.Client().ApplyURI(config.MongoUri)
+	log.Printf("Checking if a connection can be made to %s", config.MongoUri)
 	client, err := mongo.Connect(opts)
 	if err != nil {
 		panic(err)
@@ -124,7 +125,6 @@ func main() {
 	if err := client.Ping(context.TODO(), nil); err != nil {
 		log.Printf("WARNING: initial Mongo ping check failed")
 	}
-	log.Printf("Connected to '%s'", config.MongoUri)
 
 	defer func() {
 		if err := client.Disconnect(context.TODO()); err != nil {
